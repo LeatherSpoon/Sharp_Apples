@@ -7,36 +7,36 @@ class_name Combat
 
 # ---- Enums ----
 
-enum Theme {
+enum CombatTheme {
 	UNARMED,
 	ARMED,
 	RANGED,
 	ENERGY,
 }
 
-const THEME_ORDER: Array[int] = [Theme.UNARMED, Theme.ARMED, Theme.RANGED, Theme.ENERGY]
+const THEME_ORDER: Array[int] = [CombatTheme.UNARMED, CombatTheme.ARMED, CombatTheme.RANGED, CombatTheme.ENERGY]
 const MAX_MASTERY_LEVEL: int = 100
 
 const THEME_DEFINITIONS: Dictionary = {
-	Theme.UNARMED: {
+	CombatTheme.UNARMED: {
 		"name": "Unarmed",
 		"base_damage": 10.0,
 		"primary_variable": Variables.Kind.STRENGTH,
 		"theme_key": "unarmed",
 	},
-	Theme.ARMED: {
+	CombatTheme.ARMED: {
 		"name": "Armed",
 		"base_damage": 15.0,
 		"primary_variable": Variables.Kind.STRENGTH,
 		"theme_key": "armed",
 	},
-	Theme.RANGED: {
+	CombatTheme.RANGED: {
 		"name": "Ranged",
 		"base_damage": 12.0,
 		"primary_variable": Variables.Kind.DEXTERITY,
 		"theme_key": "ranged",
 	},
-	Theme.ENERGY: {
+	CombatTheme.ENERGY: {
 		"name": "Energy",
 		"base_damage": 20.0,
 		"primary_variable": Variables.Kind.FOCUS,
