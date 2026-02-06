@@ -1,24 +1,35 @@
 extends CharacterBody2D
-## Player character — handles movement via keyboard + touch,
+## Player character — handles movement via keyboard + touch + virtual joystick,
 ## generates pedometer steps while moving.
 
 const MOVE_SPEED: float = 200.0
 
 var _touch_target: Vector2 = Vector2.ZERO
 var _is_touch_moving: bool = false
+var _joystick_dir: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
 	_touch_target = global_position
 
 
+func set_joystick_direction(dir: Vector2) -> void:
+	_joystick_dir = dir
+	if dir.length() > 0.1:
+		_is_touch_moving = false
+
+
 func _physics_process(delta: float) -> void:
 	var input_dir := Vector2.ZERO
 
-	# Keyboard input (desktop testing)
+	# Keyboard input (WASD + arrows)
 	input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 
-	# Touch/tap-to-move
+	# Virtual joystick (mobile)
+	if input_dir == Vector2.ZERO and _joystick_dir.length() > 0.1:
+		input_dir = _joystick_dir
+
+	# Touch/tap-to-move (fallback for mobile)
 	if _is_touch_moving and input_dir == Vector2.ZERO:
 		var diff := _touch_target - global_position
 		if diff.length() > 4.0:

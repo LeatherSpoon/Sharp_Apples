@@ -1,20 +1,31 @@
 extends Control
 ## Combat view — Pokemon/NGU Idle style framing.
-## Opponent faces viewer (top), player's back visible (bottom).
-## Handles encounter flow: Intro → Active → Victory/Defeat → Exiting.
+## Real-time combat: player must wait for cooldown to attack (no auto-attack).
+## Opponent auto-attacks on a timer.
 
 @onready var opponent_name_label: Label = %OpponentNameLabel
 @onready var opponent_hp_bar: ProgressBar = %OpponentHPBar
 @onready var opponent_hp_label: Label = %OpponentHPLabel
+@onready var opponent_cooldown_label: Label = %OpponentCooldownLabel
 @onready var player_hp_bar: ProgressBar = %PlayerHPBar
 @onready var player_hp_label: Label = %PlayerHPLabel
 @onready var theme_label: Label = %ThemeLabel
 @onready var action_buttons: HBoxContainer = %ActionButtons
 @onready var result_panel: PanelContainer = %ResultPanel
 @onready var result_label: Label = %ResultLabel
+@onready var cooldown_bar: ProgressBar = %CooldownBar
+@onready var cooldown_label: Label = %CooldownLabel
+@onready var attack_btn: Button = %ActionButtons.get_node("AttackBtn")
 
 var _encounter: Encounter.State = null
 var _opponent_def: Encounter.OpponentDefinition = null
+
+# Cooldown system
+const PLAYER_COOLDOWN_TIME: float = 2.0
+const OPPONENT_COOLDOWN_TIME: float = 2.5
+var _player_cooldown: float = 0.0
+var _opponent_cooldown: float = 0.0
+var _combat_active: bool = false
 
 
 signal combat_finished(rewards: Dictionary)
@@ -29,10 +40,63 @@ func start_combat(opponent: Encounter.OpponentDefinition) -> void:
 	_encounter = Encounter.State.new(opponent, max_hp, max_hp, gs.active_combat_theme)
 	_encounter.begin_combat()
 
+	_player_cooldown = PLAYER_COOLDOWN_TIME
+	_opponent_cooldown = OPPONENT_COOLDOWN_TIME
+	_combat_active = true
+
 	_update_display()
 	result_panel.visible = false
 	action_buttons.visible = true
 	visible = true
+
+
+func _process(delta: float) -> void:
+	if not _combat_active or _encounter == null:
+		return
+	if _encounter.phase != Encounter.Phase.ACTIVE:
+		return
+
+	# Player cooldown ticks down
+	if _player_cooldown > 0:
+		_player_cooldown = maxf(_player_cooldown - delta, 0.0)
+
+	# Opponent auto-attack timer
+	_opponent_cooldown -= delta
+	if _opponent_cooldown <= 0:
+		_opponent_auto_attack()
+		_opponent_cooldown = OPPONENT_COOLDOWN_TIME
+
+	_update_cooldown_display()
+
+
+func _update_cooldown_display() -> void:
+	if _encounter == null:
+		return
+	var ratio := 1.0 - (_player_cooldown / PLAYER_COOLDOWN_TIME)
+	cooldown_bar.value = ratio
+	if _player_cooldown <= 0:
+		cooldown_label.text = "Ready!"
+		attack_btn.disabled = false
+	else:
+		cooldown_label.text = "Charging... %.1fs" % _player_cooldown
+		attack_btn.disabled = true
+
+	var opp_ratio := 1.0 - (_opponent_cooldown / OPPONENT_COOLDOWN_TIME)
+	opponent_cooldown_label.text = "Next attack: %.1fs" % maxf(_opponent_cooldown, 0.0)
+
+
+func _opponent_auto_attack() -> void:
+	if _encounter == null or _encounter.phase != Encounter.Phase.ACTIVE:
+		return
+
+	var opp_damage := _opponent_def.base_damage
+	_encounter.damage_player(opp_damage)
+
+	var phase := _encounter.check_resolution()
+	_update_display()
+
+	if phase == Encounter.Phase.DEFEAT:
+		_end_combat("DEFEAT!", false)
 
 
 func _update_display() -> void:
@@ -52,6 +116,8 @@ func _update_display() -> void:
 
 func _on_attack_pressed() -> void:
 	if _encounter == null or _encounter.phase != Encounter.Phase.ACTIVE:
+		return
+	if _player_cooldown > 0:
 		return
 
 	# Player attacks
@@ -74,43 +140,37 @@ func _on_attack_pressed() -> void:
 
 	_encounter.damage_opponent(damage)
 
-	# Opponent counterattacks
-	var opp_damage := _opponent_def.base_damage
-	_encounter.damage_player(opp_damage)
+	# Start cooldown
+	_player_cooldown = PLAYER_COOLDOWN_TIME
 
 	# Check resolution
 	var phase := _encounter.check_resolution()
 	_update_display()
 
 	if phase == Encounter.Phase.VICTORY:
-		_show_result("VICTORY!", true)
-	elif phase == Encounter.Phase.DEFEAT:
-		_show_result("DEFEAT!", false)
+		_end_combat("VICTORY!", true)
 
 
 func _on_defend_pressed() -> void:
 	if _encounter == null or _encounter.phase != Encounter.Phase.ACTIVE:
 		return
-	# Defend: take half damage this turn, no attack
-	var opp_damage := _opponent_def.base_damage * 0.5
-	_encounter.damage_player(opp_damage)
-
-	var phase := _encounter.check_resolution()
-	_update_display()
-
-	if phase == Encounter.Phase.DEFEAT:
-		_show_result("DEFEAT!", false)
+	# Reset opponent cooldown (block their next attack)
+	_opponent_cooldown = OPPONENT_COOLDOWN_TIME
+	# Take reduced damage from any pending hit
+	_player_cooldown = PLAYER_COOLDOWN_TIME * 0.5
 
 
 func _on_flee_pressed() -> void:
 	if _encounter == null:
 		return
+	_combat_active = false
 	_encounter.exit_encounter()
 	visible = false
 	combat_fled.emit()
 
 
-func _show_result(text: String, victory: bool) -> void:
+func _end_combat(text: String, victory: bool) -> void:
+	_combat_active = false
 	action_buttons.visible = false
 	result_label.text = text
 	result_panel.visible = true
@@ -121,6 +181,8 @@ func _show_result(text: String, victory: bool) -> void:
 		GameState.currencies.power_level.earn(rewards["power_level_gain"])
 		GameState.currencies.gold.earn(rewards["gold"])
 		GameState.mastery.award_xp(_encounter.player_theme, rewards["mastery_xp"])
+		# Award EXP for leveling
+		GameState.award_exp(rewards["gold"] + rewards["power_level_gain"])
 
 		result_label.text = "VICTORY!\nGold: +%d  PL: +%d  XP: +%d" % [
 			rewards["gold"], rewards["power_level_gain"], rewards["mastery_xp"],
