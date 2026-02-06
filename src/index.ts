@@ -37,17 +37,23 @@ export {
   type ControllingVariables,
   type VariableEffects,
   type ThemeBonusKey,
+  ACTIVITY_VARIABLE_MAP,
   VARIABLE_TRAINING_MAP,
   VARIABLE_EFFECTS,
   BASE_HP,
   BASE_ENERGY_POOL,
   BASE_ENERGY_REGEN,
+  BASE_CRIT_CHANCE,
+  CRIT_CHANCE_PER_LUCK,
+  MAX_CRIT_CHANCE,
   createControllingVariables,
   trainVariable,
   variableScaling,
   maxHP,
   energyPoolSize,
   energyRegenRate,
+  critChance,
+  lootQualityMultiplier,
 } from "./core/variables.js";
 
 // Combat Themes & Mastery
@@ -130,6 +136,66 @@ export {
   recordTournamentVictory,
   recordTournamentDefeat,
 } from "./core/environment.js";
+
+// Combat Encounters
+export {
+  EncounterPhase,
+  type LootTableEntry,
+  type OpponentDefinition,
+  type EncounterState,
+  type StartEncounterParams,
+  type EncounterRewards,
+  startEncounter,
+  beginCombat,
+  damageOpponent,
+  damagePlayer,
+  checkEncounterResolution,
+  rollLoot,
+  exitEncounter,
+  calculateEncounterRewards,
+} from "./core/encounter.js";
+
+// Dungeon / Cave Map Generation
+export {
+  Direction,
+  OPPOSITE_DIRECTION,
+  DIRECTION_OFFSET,
+  PieceShape,
+  PieceContent,
+  type GridPosition,
+  type Connector,
+  type MapPieceDefinition,
+  type PlacedPiece,
+  type DungeonConfig,
+  type GeneratedDungeon,
+  DEFAULT_DUNGEON_CONFIG,
+  MAP_PIECE_REGISTRY,
+  findCompatiblePieces,
+  generateDungeon,
+  dungeonContentSummary,
+} from "./core/dungeon.js";
+
+// Tools & Gadgets
+export {
+  ToolTier,
+  GadgetSlotType,
+  type ToolDefinition,
+  type GadgetEffect,
+  type GadgetDefinition,
+  type ToolSlots,
+  type GadgetSlots,
+  type EquipmentState,
+  createEquipmentState,
+  equipTool,
+  unequipTool,
+  getEquippedTool,
+  getToolTier,
+  toolEfficiencyMultiplier,
+  equipGadget,
+  unequipGadget,
+  expandGadgetSlots,
+  aggregateGadgetEffects,
+} from "./core/tools.js";
 
 // Game State (central container)
 export {

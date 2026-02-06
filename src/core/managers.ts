@@ -22,6 +22,9 @@ export enum TaskManagerType {
   CourseInstructor = "course_instructor",
   MeditationGuide = "meditation_guide",
   RunningCoach = "running_coach",
+  LumberjackBoss = "lumberjack_boss",
+  FishingCaptain = "fishing_captain",
+  FarmOverseer = "farm_overseer",
 }
 
 /** Which training activity each task manager automates. */
@@ -30,12 +33,16 @@ export const TASK_MANAGER_ACTIVITY: Record<TaskManagerType, TrainingActivity> = 
   [TaskManagerType.CourseInstructor]: TrainingActivity.ObstacleCourse,
   [TaskManagerType.MeditationGuide]: TrainingActivity.Meditation,
   [TaskManagerType.RunningCoach]: TrainingActivity.DistanceRunning,
+  [TaskManagerType.LumberjackBoss]: TrainingActivity.Lumberjacking,
+  [TaskManagerType.FishingCaptain]: TrainingActivity.Fishing,
+  [TaskManagerType.FarmOverseer]: TrainingActivity.Farming,
 };
 
 /** Which "department" category each task manager belongs to. */
 export enum ManagerCategory {
   Physical = "physical",
   Mental = "mental",
+  Gathering = "gathering",
 }
 
 export const TASK_MANAGER_CATEGORY: Record<TaskManagerType, ManagerCategory> = {
@@ -43,6 +50,9 @@ export const TASK_MANAGER_CATEGORY: Record<TaskManagerType, ManagerCategory> = {
   [TaskManagerType.CourseInstructor]: ManagerCategory.Mental,
   [TaskManagerType.MeditationGuide]: ManagerCategory.Mental,
   [TaskManagerType.RunningCoach]: ManagerCategory.Physical,
+  [TaskManagerType.LumberjackBoss]: ManagerCategory.Physical,
+  [TaskManagerType.FishingCaptain]: ManagerCategory.Gathering,
+  [TaskManagerType.FarmOverseer]: ManagerCategory.Gathering,
 };
 
 // ---------------------------------------------------------------------------
@@ -83,6 +93,7 @@ export interface ManagerState {
   /** Whether each department manager is owned. */
   physicalDirector: boolean;
   mentalDirector: boolean;
+  gatheringDirector: boolean;
 
   /** Whether the VP is owned. */
   vpOfTraining: boolean;
@@ -103,9 +114,13 @@ export function createManagerState(): ManagerState {
       [TaskManagerType.CourseInstructor]: 0,
       [TaskManagerType.MeditationGuide]: 0,
       [TaskManagerType.RunningCoach]: 0,
+      [TaskManagerType.LumberjackBoss]: 0,
+      [TaskManagerType.FishingCaptain]: 0,
+      [TaskManagerType.FarmOverseer]: 0,
     },
     physicalDirector: false,
     mentalDirector: false,
+    gatheringDirector: false,
     vpOfTraining: false,
     vpAutoHireEnabled: false,
     ceo: false,
@@ -132,7 +147,7 @@ export function canUnlockDepartmentManager(
 }
 
 export function canUnlockVP(state: ManagerState): boolean {
-  return state.physicalDirector && state.mentalDirector;
+  return state.physicalDirector && state.mentalDirector && state.gatheringDirector;
 }
 
 export function canUnlockCEO(
@@ -182,7 +197,9 @@ export function automationEfficiency(
   const hasDepartment =
     category === ManagerCategory.Physical
       ? state.physicalDirector
-      : state.mentalDirector;
+      : category === ManagerCategory.Mental
+        ? state.mentalDirector
+        : state.gatheringDirector;
   const departmentBonus = hasDepartment ? 1.25 : 1.0;
 
   const executiveBonus = state.vpOfTraining ? 1.5 : 1.0;
@@ -234,6 +251,7 @@ export function performPrestige(state: ManagerState): PrestigeResult {
   }
   state.physicalDirector = false;
   state.mentalDirector = false;
+  state.gatheringDirector = false;
   state.vpOfTraining = false;
   state.vpAutoHireEnabled = false;
   state.ceo = false;

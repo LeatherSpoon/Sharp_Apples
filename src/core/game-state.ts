@@ -106,15 +106,10 @@ export function createGameState(): GameState {
 }
 
 // ---------------------------------------------------------------------------
-// Activity → Variable mapping (reverse of VARIABLE_TRAINING_MAP)
+// Activity → Variable mapping (uses the canonical map from variables.ts)
 // ---------------------------------------------------------------------------
 
-const ACTIVITY_TO_VARIABLE: Record<TrainingActivity, VariableKind> = {
-  [TrainingActivity.Mining]: VariableKind.Strength,
-  [TrainingActivity.ObstacleCourse]: VariableKind.Dexterity,
-  [TrainingActivity.Meditation]: VariableKind.Focus,
-  [TrainingActivity.DistanceRunning]: VariableKind.Endurance,
-};
+import { ACTIVITY_VARIABLE_MAP } from "./variables.js";
 
 // ---------------------------------------------------------------------------
 // Tick / update helpers
@@ -135,6 +130,7 @@ export function tickManagers(
     [VariableKind.Dexterity]: 0,
     [VariableKind.Focus]: 0,
     [VariableKind.Endurance]: 0,
+    [VariableKind.Luck]: 0,
   };
 
   const elapsedHours = elapsedSeconds / 3600;
@@ -144,7 +140,7 @@ export function tickManagers(
     if (gainsPerHour <= 0) continue;
 
     const activity = TASK_MANAGER_ACTIVITY[type];
-    const variable = ACTIVITY_TO_VARIABLE[activity];
+    const variable = ACTIVITY_VARIABLE_MAP[activity];
     const amount = gainsPerHour * elapsedHours;
 
     trainVariable(state.variables, variable, amount);

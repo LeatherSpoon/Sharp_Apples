@@ -1,15 +1,21 @@
 import { describe, it, expect } from "vitest";
 import {
   VariableKind,
+  TrainingActivity,
+  ACTIVITY_VARIABLE_MAP,
   createControllingVariables,
   trainVariable,
   variableScaling,
   maxHP,
   energyPoolSize,
   energyRegenRate,
+  critChance,
+  lootQualityMultiplier,
   BASE_HP,
   BASE_ENERGY_POOL,
   BASE_ENERGY_REGEN,
+  BASE_CRIT_CHANCE,
+  MAX_CRIT_CHANCE,
 } from "../core/variables.js";
 
 describe("ControllingVariables", () => {
@@ -19,6 +25,7 @@ describe("ControllingVariables", () => {
     expect(vars[VariableKind.Dexterity]).toBe(0);
     expect(vars[VariableKind.Focus]).toBe(0);
     expect(vars[VariableKind.Endurance]).toBe(0);
+    expect(vars[VariableKind.Luck]).toBe(0);
   });
 
   it("trainVariable increases the chosen stat", () => {
@@ -82,5 +89,50 @@ describe("derived stats", () => {
   it("energyRegenRate = 5 + focus * 0.5", () => {
     expect(energyRegenRate(0)).toBe(BASE_ENERGY_REGEN);
     expect(energyRegenRate(10)).toBe(10);
+  });
+
+  it("critChance scales from luck, capped at 50%", () => {
+    expect(critChance(0)).toBe(BASE_CRIT_CHANCE);
+    expect(critChance(10)).toBeCloseTo(0.1);
+    expect(critChance(1000)).toBe(MAX_CRIT_CHANCE);
+  });
+
+  it("lootQualityMultiplier scales from luck", () => {
+    expect(lootQualityMultiplier(0)).toBe(1.0);
+    expect(lootQualityMultiplier(50)).toBeCloseTo(1.5);
+    expect(lootQualityMultiplier(100)).toBeCloseTo(2.0);
+  });
+});
+
+describe("ACTIVITY_VARIABLE_MAP", () => {
+  it("maps mining and lumberjacking to strength", () => {
+    expect(ACTIVITY_VARIABLE_MAP[TrainingActivity.Mining]).toBe(VariableKind.Strength);
+    expect(ACTIVITY_VARIABLE_MAP[TrainingActivity.Lumberjacking]).toBe(VariableKind.Strength);
+  });
+
+  it("maps fishing to luck", () => {
+    expect(ACTIVITY_VARIABLE_MAP[TrainingActivity.Fishing]).toBe(VariableKind.Luck);
+  });
+
+  it("maps farming to endurance", () => {
+    expect(ACTIVITY_VARIABLE_MAP[TrainingActivity.Farming]).toBe(VariableKind.Endurance);
+  });
+
+  it("covers all training activities", () => {
+    for (const activity of Object.values(TrainingActivity)) {
+      expect(ACTIVITY_VARIABLE_MAP[activity]).toBeDefined();
+    }
+  });
+});
+
+describe("luck in variableScaling", () => {
+  it("luck contributes a small bonus to all themes", () => {
+    const vars = createControllingVariables();
+    trainVariable(vars, VariableKind.Luck, 100);
+    // Luck gives 0.002 per point to each theme
+    expect(variableScaling(vars, "unarmedDamage")).toBeCloseTo(0.2);
+    expect(variableScaling(vars, "armedDamage")).toBeCloseTo(0.2);
+    expect(variableScaling(vars, "rangedBonus")).toBeCloseTo(0.2);
+    expect(variableScaling(vars, "energyBonus")).toBeCloseTo(0.2);
   });
 });

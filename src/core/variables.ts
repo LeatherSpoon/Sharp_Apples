@@ -1,11 +1,15 @@
 /**
- * Controlling Variables — the four stats that drive combat theme scaling
- * and are trainable through active activities or automated by managers.
+ * Controlling Variables — stats that drive combat theme scaling,
+ * trainable through laborious activities or automated by managers.
  *
- * Strength   (Mining)           → Unarmed/Armed damage
- * Dexterity  (Obstacle Courses) → Ranged accuracy, Armed speed
- * Focus      (Meditation)       → Energy capacity, Ranged range
- * Endurance  (Distance Running) → HP, all-theme defense
+ * Core 4 (original):
+ *   Strength   (Mining, Lumberjacking) → Unarmed/Armed damage
+ *   Dexterity  (Obstacle Courses)      → Ranged accuracy, Armed speed
+ *   Focus      (Meditation)            → Energy capacity, Ranged range
+ *   Endurance  (Distance Running)      → HP, all-theme defense
+ *
+ * Extended:
+ *   Luck       (Fishing)              → Crit chance, loot quality, rare drops
  */
 
 export enum VariableKind {
@@ -13,6 +17,7 @@ export enum VariableKind {
   Dexterity = "dexterity",
   Focus = "focus",
   Endurance = "endurance",
+  Luck = "luck",
 }
 
 export enum TrainingActivity {
@@ -20,14 +25,33 @@ export enum TrainingActivity {
   ObstacleCourse = "obstacle_course",
   Meditation = "meditation",
   DistanceRunning = "distance_running",
+  Lumberjacking = "lumberjacking",
+  Fishing = "fishing",
+  Farming = "farming",
 }
 
-/** Maps each controlling variable to the activity that trains it. */
+/**
+ * Maps each activity to the variable it primarily trains.
+ * Note: multiple activities can train the same variable (e.g. Mining
+ * and Lumberjacking both train Strength).
+ */
+export const ACTIVITY_VARIABLE_MAP: Record<TrainingActivity, VariableKind> = {
+  [TrainingActivity.Mining]: VariableKind.Strength,
+  [TrainingActivity.Lumberjacking]: VariableKind.Strength,
+  [TrainingActivity.ObstacleCourse]: VariableKind.Dexterity,
+  [TrainingActivity.Meditation]: VariableKind.Focus,
+  [TrainingActivity.DistanceRunning]: VariableKind.Endurance,
+  [TrainingActivity.Fishing]: VariableKind.Luck,
+  [TrainingActivity.Farming]: VariableKind.Endurance,
+};
+
+/** @deprecated Use ACTIVITY_VARIABLE_MAP instead. Kept for backward compat. */
 export const VARIABLE_TRAINING_MAP: Record<VariableKind, TrainingActivity> = {
   [VariableKind.Strength]: TrainingActivity.Mining,
   [VariableKind.Dexterity]: TrainingActivity.ObstacleCourse,
   [VariableKind.Focus]: TrainingActivity.Meditation,
   [VariableKind.Endurance]: TrainingActivity.DistanceRunning,
+  [VariableKind.Luck]: TrainingActivity.Fishing,
 };
 
 /** Active training gains per hour at each effort level. */
@@ -42,6 +66,7 @@ export interface ControllingVariables {
   [VariableKind.Dexterity]: number;
   [VariableKind.Focus]: number;
   [VariableKind.Endurance]: number;
+  [VariableKind.Luck]: number;
 }
 
 export function createControllingVariables(): ControllingVariables {
@@ -50,6 +75,7 @@ export function createControllingVariables(): ControllingVariables {
     [VariableKind.Dexterity]: 0,
     [VariableKind.Focus]: 0,
     [VariableKind.Endurance]: 0,
+    [VariableKind.Luck]: 0,
   };
 }
 
@@ -115,6 +141,14 @@ export const VARIABLE_EFFECTS: Record<VariableKind, VariableEffects> = {
     generalBonus: "max HP / stamina regen",
     generalValue: 1,
   },
+  [VariableKind.Luck]: {
+    unarmedDamage: 0.002,
+    armedDamage: 0.002,
+    rangedBonus: 0.002,
+    energyBonus: 0.002,
+    generalBonus: "crit chance / loot quality",
+    generalValue: 0.005,
+  },
 };
 
 /**
@@ -171,4 +205,24 @@ export const BASE_ENERGY_REGEN = 5;
 
 export function energyRegenRate(focus: number): number {
   return BASE_ENERGY_REGEN + focus * 0.5;
+}
+
+/**
+ * Crit chance derived from Luck.
+ * Base 5% + 0.5% per Luck point, capped at 50%.
+ */
+export const BASE_CRIT_CHANCE = 0.05;
+export const CRIT_CHANCE_PER_LUCK = 0.005;
+export const MAX_CRIT_CHANCE = 0.5;
+
+export function critChance(luck: number): number {
+  return Math.min(BASE_CRIT_CHANCE + luck * CRIT_CHANCE_PER_LUCK, MAX_CRIT_CHANCE);
+}
+
+/**
+ * Loot quality multiplier derived from Luck.
+ * Formula: 1.0 + (Luck × 0.01)  — each point gives +1% better drops.
+ */
+export function lootQualityMultiplier(luck: number): number {
+  return 1.0 + luck * 0.01;
 }

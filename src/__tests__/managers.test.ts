@@ -75,7 +75,7 @@ describe("unlock checks", () => {
     expect(canUnlockDepartmentManager(state, ManagerCategory.Physical)).toBe(true);
   });
 
-  it("VP needs both department managers", () => {
+  it("VP needs all three department managers", () => {
     const state = createManagerState();
     expect(canUnlockVP(state)).toBe(false);
 
@@ -83,7 +83,19 @@ describe("unlock checks", () => {
     expect(canUnlockVP(state)).toBe(false);
 
     state.mentalDirector = true;
+    expect(canUnlockVP(state)).toBe(false);
+
+    state.gatheringDirector = true;
     expect(canUnlockVP(state)).toBe(true);
+  });
+
+  it("gathering department manager needs 2+ gathering task managers", () => {
+    const state = createManagerState();
+    expect(canUnlockDepartmentManager(state, ManagerCategory.Gathering)).toBe(false);
+
+    state.taskManagers[TaskManagerType.FishingCaptain] = 1;
+    state.taskManagers[TaskManagerType.FarmOverseer] = 1;
+    expect(canUnlockDepartmentManager(state, ManagerCategory.Gathering)).toBe(true);
   });
 
   it("CEO needs VP + completed theme cycle", () => {
@@ -139,6 +151,21 @@ describe("automationEfficiency", () => {
     state.mentalDirector = true;
     expect(automationEfficiency(state, TaskManagerType.MeditationGuide)).toBeCloseTo(0.625);
   });
+
+  it("gathering category uses gathering director", () => {
+    const state = createManagerState();
+    state.taskManagers[TaskManagerType.FishingCaptain] = 1;
+    state.gatheringDirector = true;
+    expect(automationEfficiency(state, TaskManagerType.FishingCaptain)).toBeCloseTo(0.625);
+  });
+
+  it("new manager types work with passiveGainsPerHour", () => {
+    const state = createManagerState();
+    state.taskManagers[TaskManagerType.LumberjackBoss] = 1;
+    expect(passiveGainsPerHour(state, TaskManagerType.LumberjackBoss)).toBeCloseTo(5);
+    state.taskManagers[TaskManagerType.FarmOverseer] = 1;
+    expect(passiveGainsPerHour(state, TaskManagerType.FarmOverseer)).toBeCloseTo(5);
+  });
 });
 
 describe("passiveGainsPerHour", () => {
@@ -154,7 +181,9 @@ describe("prestige", () => {
   it("increments prestige level and resets managers", () => {
     const state = createManagerState();
     state.taskManagers[TaskManagerType.MiningForeman] = 3;
+    state.taskManagers[TaskManagerType.FishingCaptain] = 2;
     state.physicalDirector = true;
+    state.gatheringDirector = true;
     state.vpOfTraining = true;
     state.ceo = true;
 
@@ -164,7 +193,9 @@ describe("prestige", () => {
 
     // All managers reset
     expect(state.taskManagers[TaskManagerType.MiningForeman]).toBe(0);
+    expect(state.taskManagers[TaskManagerType.FishingCaptain]).toBe(0);
     expect(state.physicalDirector).toBe(false);
+    expect(state.gatheringDirector).toBe(false);
     expect(state.vpOfTraining).toBe(false);
     expect(state.ceo).toBe(false);
   });
