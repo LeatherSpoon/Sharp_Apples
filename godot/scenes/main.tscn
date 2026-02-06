@@ -1,0 +1,460 @@
+[gd_scene load_steps=8 format=3 uid="uid://main_scene"]
+
+[ext_resource type="Script" path="res://scripts/ui/main_ui.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/overworld/player.gd" id="2_player"]
+[ext_resource type="Script" path="res://scripts/combat/combat_view.gd" id="3_combat"]
+[ext_resource type="Script" path="res://scripts/ui/training_panel.gd" id="4_training"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
+size = Vector2(14, 14)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_banner"]
+bg_color = Color(0.1, 0.1, 0.18, 0.95)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.12, 0.12, 0.2, 0.95)
+content_margin_left = 12.0
+content_margin_top = 12.0
+content_margin_right = 12.0
+content_margin_bottom = 12.0
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_popup"]
+bg_color = Color(0.08, 0.08, 0.14, 0.98)
+content_margin_left = 16.0
+content_margin_top = 16.0
+content_margin_right = 16.0
+content_margin_bottom = 16.0
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[node name="Main" type="Node"]
+script = ExtResource("1_main")
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="Ground" type="ColorRect" parent="World"]
+offset_left = -2000.0
+offset_top = -2000.0
+offset_right = 2000.0
+offset_bottom = 2000.0
+color = Color(0.18, 0.55, 0.22, 1.0)
+
+[node name="Path1" type="ColorRect" parent="World"]
+offset_left = -50.0
+offset_top = -500.0
+offset_right = 50.0
+offset_bottom = 500.0
+color = Color(0.55, 0.4, 0.25, 1.0)
+
+[node name="Path2" type="ColorRect" parent="World"]
+offset_left = -500.0
+offset_top = -30.0
+offset_right = 500.0
+offset_bottom = 30.0
+color = Color(0.55, 0.4, 0.25, 1.0)
+
+[node name="Pond" type="ColorRect" parent="World"]
+offset_left = 150.0
+offset_top = -200.0
+offset_right = 350.0
+offset_bottom = -50.0
+color = Color(0.15, 0.35, 0.65, 1.0)
+
+[node name="Dojo" type="ColorRect" parent="World"]
+offset_left = -300.0
+offset_top = -350.0
+offset_right = -150.0
+offset_bottom = -200.0
+color = Color(0.6, 0.3, 0.15, 1.0)
+
+[node name="Player" type="CharacterBody2D" parent="World"]
+script = ExtResource("2_player")
+
+[node name="Sprite" type="ColorRect" parent="World/Player"]
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 8.0
+offset_bottom = 8.0
+color = Color(0.2, 0.4, 0.9, 1.0)
+
+[node name="CollisionShape" type="CollisionShape2D" parent="World/Player"]
+shape = SubResource("RectangleShape2D_player")
+
+[node name="Camera2D" type="Camera2D" parent="World/Player"]
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
+
+[node name="UILayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="UI" type="Control" parent="UILayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TopBanner" type="PanelContainer" parent="UILayer/UI"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 56.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_banner")
+
+[node name="BannerHBox" type="HBoxContainer" parent="UILayer/UI/TopBanner"]
+layout_mode = 2
+
+[node name="SettingsButton" type="Button" parent="UILayer/UI/TopBanner/BannerHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(56, 0)
+text = "Set"
+
+[node name="PowerLevelLabel" type="Label" parent="UILayer/UI/TopBanner/BannerHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "PL 1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MenuButton" type="Button" parent="UILayer/UI/TopBanner/BannerHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(56, 0)
+text = "Menu"
+
+[node name="BottomArea" type="VBoxContainer" parent="UILayer/UI"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -120.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="StatsBar" type="HBoxContainer" parent="UILayer/UI/BottomArea"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="GoldLabel" type="Label" parent="UILayer/UI/BottomArea/StatsBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Gold: 0"
+horizontal_alignment = 1
+
+[node name="EnvironmentLabel" type="Label" parent="UILayer/UI/BottomArea/StatsBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Forest Dojo"
+horizontal_alignment = 1
+
+[node name="StepsLabel" type="Label" parent="UILayer/UI/BottomArea/StatsBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Steps: 0"
+horizontal_alignment = 1
+
+[node name="BottomNav" type="HBoxContainer" parent="UILayer/UI/BottomArea"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 56)
+theme_override_constants/separation = 4
+
+[node name="OverworldBtn" type="Button" parent="UILayer/UI/BottomArea/BottomNav"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+button_pressed = true
+text = "World"
+
+[node name="TrainBtn" type="Button" parent="UILayer/UI/BottomArea/BottomNav"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "Train"
+
+[node name="FightBtn" type="Button" parent="UILayer/UI/BottomArea/BottomNav"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Fight"
+
+[node name="GearBtn" type="Button" parent="UILayer/UI/BottomArea/BottomNav"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Gear"
+
+[node name="TrainingPanel" type="PanelContainer" parent="UILayer/UI"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchor_left = 0.05
+anchor_top = 0.06
+anchor_right = 0.95
+anchor_bottom = 0.88
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+script = ExtResource("4_training")
+
+[node name="VBox" type="VBoxContainer" parent="UILayer/UI/TrainingPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="UILayer/UI/TrainingPanel/VBox"]
+layout_mode = 2
+text = "TRAINING"
+horizontal_alignment = 1
+
+[node name="ActiveTrainingLabel" type="Label" parent="UILayer/UI/TrainingPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Tap an activity to train"
+horizontal_alignment = 1
+
+[node name="Sep" type="HSeparator" parent="UILayer/UI/TrainingPanel/VBox"]
+layout_mode = 2
+
+[node name="ActivityList" type="VBoxContainer" parent="UILayer/UI/TrainingPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+
+[node name="CombatView" type="Control" parent="UILayer/UI"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_combat")
+
+[node name="Background" type="ColorRect" parent="UILayer/UI/CombatView"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.05, 0.08, 0.12, 0.97)
+
+[node name="CombatLayout" type="VBoxContainer" parent="UILayer/UI/CombatView"]
+layout_mode = 1
+anchor_left = 0.05
+anchor_top = 0.06
+anchor_right = 0.95
+anchor_bottom = 0.88
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="ThemeLabel" type="Label" parent="UILayer/UI/CombatView/CombatLayout"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Unarmed"
+horizontal_alignment = 1
+
+[node name="OpponentArea" type="VBoxContainer" parent="UILayer/UI/CombatView/CombatLayout"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="OpponentNameLabel" type="Label" parent="UILayer/UI/CombatView/CombatLayout/OpponentArea"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Opponent"
+horizontal_alignment = 1
+
+[node name="OpponentSprite" type="ColorRect" parent="UILayer/UI/CombatView/CombatLayout/OpponentArea"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 120)
+size_flags_horizontal = 4
+color = Color(0.7, 0.15, 0.15, 1.0)
+
+[node name="OpponentHPBar" type="ProgressBar" parent="UILayer/UI/CombatView/CombatLayout/OpponentArea"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 100.0
+value = 100.0
+
+[node name="OpponentHPLabel" type="Label" parent="UILayer/UI/CombatView/CombatLayout/OpponentArea"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "100 / 100"
+horizontal_alignment = 1
+
+[node name="VSLabel" type="Label" parent="UILayer/UI/CombatView/CombatLayout"]
+layout_mode = 2
+text = "VS"
+horizontal_alignment = 1
+
+[node name="PlayerArea" type="VBoxContainer" parent="UILayer/UI/CombatView/CombatLayout"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PlayerSprite" type="ColorRect" parent="UILayer/UI/CombatView/CombatLayout/PlayerArea"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 100)
+size_flags_horizontal = 4
+color = Color(0.2, 0.4, 0.9, 1.0)
+
+[node name="PlayerHPBar" type="ProgressBar" parent="UILayer/UI/CombatView/CombatLayout/PlayerArea"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 100.0
+value = 100.0
+
+[node name="PlayerHPLabel" type="Label" parent="UILayer/UI/CombatView/CombatLayout/PlayerArea"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "100 / 100"
+horizontal_alignment = 1
+
+[node name="ActionButtons" type="HBoxContainer" parent="UILayer/UI/CombatView/CombatLayout"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 48)
+theme_override_constants/separation = 8
+
+[node name="AttackBtn" type="Button" parent="UILayer/UI/CombatView/CombatLayout/ActionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Attack"
+
+[node name="DefendBtn" type="Button" parent="UILayer/UI/CombatView/CombatLayout/ActionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Defend"
+
+[node name="FleeBtn" type="Button" parent="UILayer/UI/CombatView/CombatLayout/ActionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Flee"
+
+[node name="ResultPanel" type="PanelContainer" parent="UILayer/UI/CombatView/CombatLayout"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="ResultLabel" type="Label" parent="UILayer/UI/CombatView/CombatLayout/ResultPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Result"
+horizontal_alignment = 1
+
+[node name="SettingsPopup" type="PanelContainer" parent="UILayer/UI"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchor_left = 0.1
+anchor_top = 0.08
+anchor_right = 0.9
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_popup")
+
+[node name="SettingsVBox" type="VBoxContainer" parent="UILayer/UI/SettingsPopup"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="UILayer/UI/SettingsPopup/SettingsVBox"]
+layout_mode = 2
+text = "SETTINGS"
+horizontal_alignment = 1
+
+[node name="MusicLabel" type="Label" parent="UILayer/UI/SettingsPopup/SettingsVBox"]
+layout_mode = 2
+text = "Music Volume"
+
+[node name="MusicSlider" type="HSlider" parent="UILayer/UI/SettingsPopup/SettingsVBox"]
+layout_mode = 2
+max_value = 1.0
+step = 0.05
+value = 0.8
+
+[node name="SfxLabel" type="Label" parent="UILayer/UI/SettingsPopup/SettingsVBox"]
+layout_mode = 2
+text = "SFX Volume"
+
+[node name="SfxSlider" type="HSlider" parent="UILayer/UI/SettingsPopup/SettingsVBox"]
+layout_mode = 2
+max_value = 1.0
+step = 0.05
+value = 0.8
+
+[node name="CloseBtn" type="Button" parent="UILayer/UI/SettingsPopup/SettingsVBox"]
+layout_mode = 2
+text = "Close"
+
+[node name="MenuPopup" type="PanelContainer" parent="UILayer/UI"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchor_left = 0.1
+anchor_top = 0.08
+anchor_right = 0.9
+anchor_bottom = 0.55
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_popup")
+
+[node name="MenuVBox" type="VBoxContainer" parent="UILayer/UI/MenuPopup"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="UILayer/UI/MenuPopup/MenuVBox"]
+layout_mode = 2
+text = "MENU"
+horizontal_alignment = 1
+
+[node name="StatsBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+layout_mode = 2
+text = "Character Stats"
+
+[node name="MasteryBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+layout_mode = 2
+text = "Mastery Progress"
+
+[node name="ManagersBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+layout_mode = 2
+text = "Managers"
+
+[node name="PedometerBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+layout_mode = 2
+text = "Spend Pedometer"
+
+[node name="MasterResetBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+layout_mode = 2
+text = "Challenge Master (Reset)"
+
+[node name="CloseBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+layout_mode = 2
+text = "Close"
+
+[connection signal="pressed" from="UILayer/UI/CombatView/CombatLayout/ActionButtons/AttackBtn" to="UILayer/UI/CombatView" method="_on_attack_pressed"]
+[connection signal="pressed" from="UILayer/UI/CombatView/CombatLayout/ActionButtons/DefendBtn" to="UILayer/UI/CombatView" method="_on_defend_pressed"]
+[connection signal="pressed" from="UILayer/UI/CombatView/CombatLayout/ActionButtons/FleeBtn" to="UILayer/UI/CombatView" method="_on_flee_pressed"]
