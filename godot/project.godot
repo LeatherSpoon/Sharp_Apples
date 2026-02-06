@@ -10,7 +10,7 @@ config/name="MyRPG"
 config/description="Loop-driven 2D RPG idle game"
 config/version="0.1.0"
 run/main_scene="res://scenes/main.tscn"
-config/features=PackedStringArray("4.3", "Mobile")
+config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.svg"
 
 [autoload]

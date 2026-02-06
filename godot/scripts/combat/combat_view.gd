@@ -2,6 +2,7 @@ extends Control
 ## Combat view — Pokemon/NGU Idle style framing.
 ## Real-time combat: player must wait for cooldown to attack (no auto-attack).
 ## Opponent auto-attacks on a timer.
+## After combat ends, click/tap anywhere to dismiss.
 
 @onready var opponent_name_label: Label = %OpponentNameLabel
 @onready var opponent_hp_bar: ProgressBar = %OpponentHPBar
@@ -26,6 +27,8 @@ const OPPONENT_COOLDOWN_TIME: float = 2.5
 var _player_cooldown: float = 0.0
 var _opponent_cooldown: float = 0.0
 var _combat_active: bool = false
+var _waiting_for_dismiss: bool = false
+var _was_victory: bool = false
 
 
 signal combat_finished(rewards: Dictionary)
@@ -43,6 +46,8 @@ func start_combat(opponent: Encounter.OpponentDefinition) -> void:
 	_player_cooldown = PLAYER_COOLDOWN_TIME
 	_opponent_cooldown = OPPONENT_COOLDOWN_TIME
 	_combat_active = true
+	_waiting_for_dismiss = false
+	_was_victory = false
 
 	_update_display()
 	result_panel.visible = false
@@ -69,6 +74,15 @@ func _process(delta: float) -> void:
 	_update_cooldown_display()
 
 
+func _gui_input(event: InputEvent) -> void:
+	# Click/tap anywhere to dismiss the result screen
+	if _waiting_for_dismiss:
+		if (event is InputEventMouseButton and event.pressed) or \
+		   (event is InputEventScreenTouch and event.pressed):
+			_dismiss_result()
+			accept_event()
+
+
 func _update_cooldown_display() -> void:
 	if _encounter == null:
 		return
@@ -81,7 +95,6 @@ func _update_cooldown_display() -> void:
 		cooldown_label.text = "Charging... %.1fs" % _player_cooldown
 		attack_btn.disabled = true
 
-	var opp_ratio := 1.0 - (_opponent_cooldown / OPPONENT_COOLDOWN_TIME)
 	opponent_cooldown_label.text = "Next attack: %.1fs" % maxf(_opponent_cooldown, 0.0)
 
 
@@ -156,7 +169,7 @@ func _on_defend_pressed() -> void:
 		return
 	# Reset opponent cooldown (block their next attack)
 	_opponent_cooldown = OPPONENT_COOLDOWN_TIME
-	# Take reduced damage from any pending hit
+	# Shorter player cooldown as a reward for defending
 	_player_cooldown = PLAYER_COOLDOWN_TIME * 0.5
 
 
@@ -171,27 +184,34 @@ func _on_flee_pressed() -> void:
 
 func _end_combat(text: String, victory: bool) -> void:
 	_combat_active = false
+	_was_victory = victory
 	action_buttons.visible = false
-	result_label.text = text
 	result_panel.visible = true
 
 	if victory:
 		var rewards := _encounter.calculate_rewards()
-		# Apply rewards through GameState
 		GameState.currencies.power_level.earn(rewards["power_level_gain"])
 		GameState.currencies.gold.earn(rewards["gold"])
 		GameState.mastery.award_xp(_encounter.player_theme, rewards["mastery_xp"])
-		# Award EXP for leveling
 		GameState.award_exp(rewards["gold"] + rewards["power_level_gain"])
 
-		result_label.text = "VICTORY!\nGold: +%d  PL: +%d  XP: +%d" % [
+		result_label.text = "VICTORY!\nGold: +%d  PL: +%d  XP: +%d\n\nTap anywhere to continue" % [
 			rewards["gold"], rewards["power_level_gain"], rewards["mastery_xp"],
 		]
+	else:
+		result_label.text = "DEFEAT!\n\nTap anywhere to continue"
 
-	# Auto-close after delay
-	await get_tree().create_timer(2.5).timeout
+	# Enable click-to-dismiss (small delay to prevent accidental immediate dismiss)
+	await get_tree().create_timer(0.3).timeout
+	_waiting_for_dismiss = true
+	mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+func _dismiss_result() -> void:
+	_waiting_for_dismiss = false
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
-	if victory:
+	if _was_victory:
 		combat_finished.emit(_encounter.calculate_rewards())
 	else:
 		combat_finished.emit({})

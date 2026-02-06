@@ -1,6 +1,7 @@
 extends PanelContainer
-## Training panel — buttons for each laborious activity.
-## Active training: tap an activity to train it manually.
+## Training panel — select an activity to actively train a stat.
+## While an activity is selected, the corresponding stat increases over time.
+## Equipping tools from the Gear shop multiplies training speed.
 
 @onready var activity_list: VBoxContainer = %ActivityList
 @onready var active_label: Label = %ActiveTrainingLabel
@@ -16,6 +17,16 @@ const ACTIVITY_NAMES: Dictionary = {
 	Variables.TrainingActivity.DISTANCE_RUNNING: "Distance Running",
 	Variables.TrainingActivity.FISHING: "Fishing",
 	Variables.TrainingActivity.FARMING: "Farming",
+}
+
+const ACTIVITY_DESCRIPTIONS: Dictionary = {
+	Variables.TrainingActivity.MINING: "Trains STR — Boosts Unarmed & Armed damage",
+	Variables.TrainingActivity.LUMBERJACKING: "Trains STR — Boosts Unarmed & Armed damage",
+	Variables.TrainingActivity.OBSTACLE_COURSE: "Trains DEX — Boosts Ranged accuracy & crit",
+	Variables.TrainingActivity.MEDITATION: "Trains FOC — Boosts Energy pool & regen",
+	Variables.TrainingActivity.DISTANCE_RUNNING: "Trains END — Boosts max HP & defense",
+	Variables.TrainingActivity.FISHING: "Trains LCK — Boosts crit chance & loot quality",
+	Variables.TrainingActivity.FARMING: "Trains END — Boosts max HP & defense",
 }
 
 const VARIABLE_NAMES: Dictionary = {
@@ -51,11 +62,24 @@ func _build_activity_buttons() -> void:
 		child.queue_free()
 
 	for activity_key in ACTIVITY_NAMES:
+		var vbox := VBoxContainer.new()
+		vbox.name = "ActivityBox_%d" % activity_key
+
 		var btn := Button.new()
-		btn.name = "Activity_%d" % activity_key
-		btn.custom_minimum_size = Vector2(0, 48)
+		btn.name = "Button"
+		btn.custom_minimum_size = Vector2(0, 40)
 		btn.pressed.connect(_on_activity_pressed.bind(activity_key))
-		activity_list.add_child(btn)
+		vbox.add_child(btn)
+
+		var desc := Label.new()
+		desc.name = "Desc"
+		desc.theme_override_font_sizes = { "font_size": 10 }
+		desc.text = ACTIVITY_DESCRIPTIONS.get(activity_key, "")
+		desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		desc.add_theme_font_size_override("font_size", 10)
+		vbox.add_child(desc)
+
+		activity_list.add_child(vbox)
 
 
 func _on_activity_pressed(activity: int) -> void:
@@ -71,19 +95,31 @@ func _update_display() -> void:
 		return
 
 	if _active_activity >= 0:
-		active_label.text = "Training: %s" % ACTIVITY_NAMES.get(_active_activity, "???")
+		var kind: int = Variables.ACTIVITY_VARIABLE_MAP[_active_activity]
+		var var_name: String = VARIABLE_NAMES.get(kind, "???")
+		var val: float = GameState.variables.get_value(kind)
+		active_label.text = "Training: %s  (%s: %.1f)" % [
+			ACTIVITY_NAMES.get(_active_activity, "???"), var_name, val,
+		]
 	else:
-		active_label.text = "Tap an activity to train"
+		active_label.text = "Select an activity to train a stat over time"
 
 	var idx := 0
 	for activity_key in ACTIVITY_NAMES:
 		if idx >= activity_list.get_child_count():
 			break
-		var btn: Button = activity_list.get_child(idx)
+		var vbox: VBoxContainer = activity_list.get_child(idx)
+		var btn: Button = vbox.get_node("Button")
 		var kind: int = Variables.ACTIVITY_VARIABLE_MAP[activity_key]
 		var val: float = GameState.variables.get_value(kind)
 		var var_name: String = VARIABLE_NAMES.get(kind, "???")
 		var act_name: String = ACTIVITY_NAMES[activity_key]
-		btn.text = "%s  [%s: %.0f]" % [act_name, var_name, val]
+		var tool_mult := GameState.equipment.tool_efficiency(activity_key)
+
+		var tool_text := ""
+		if tool_mult > 1.0:
+			tool_text = "  (x%.1f)" % tool_mult
+
+		btn.text = "%s  [%s: %.0f]%s" % [act_name, var_name, val, tool_text]
 		btn.button_pressed = (_active_activity == activity_key)
 		idx += 1
