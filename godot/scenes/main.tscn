@@ -477,6 +477,49 @@ layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 4
 
+[node name="StepsShopPanel" type="PanelContainer" parent="UILayer/UI"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchor_left = 0.05
+anchor_top = 0.06
+anchor_right = 0.95
+anchor_bottom = 0.88
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="StepsVBox" type="VBoxContainer" parent="UILayer/UI/StepsShopPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StepsTitle" type="Label" parent="UILayer/UI/StepsShopPanel/StepsVBox"]
+layout_mode = 2
+text = "STEP SHOP"
+horizontal_alignment = 1
+
+[node name="StepsBalance" type="Label" parent="UILayer/UI/StepsShopPanel/StepsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Steps: 0"
+horizontal_alignment = 1
+
+[node name="StepsDesc" type="Label" parent="UILayer/UI/StepsShopPanel/StepsVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Spend steps earned from walking to buy permanent upgrades."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="StepsSep" type="HSeparator" parent="UILayer/UI/StepsShopPanel/StepsVBox"]
+layout_mode = 2
+
+[node name="StepsShopList" type="VBoxContainer" parent="UILayer/UI/StepsShopPanel/StepsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
 [node name="SettingsPopup" type="PanelContainer" parent="UILayer/UI"]
 unique_name_in_owner = true
 visible = false
@@ -562,7 +605,7 @@ text = "Managers"
 [node name="PedometerBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Spend Pedometer"
+text = "Step Shop"
 
 [node name="MasterResetBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
 unique_name_in_owner = true

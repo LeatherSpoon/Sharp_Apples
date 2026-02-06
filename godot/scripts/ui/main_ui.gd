@@ -1,7 +1,7 @@
 extends Node
 ## Main scene controller — manages the top banner, bottom nav,
-## content switching (overworld / training / combat / gear), stat display,
-## menu popups, EXP/level bar, stat allocation, and virtual joystick.
+## content switching (overworld / training / combat / gear / step shop),
+## stat display, menu popups, EXP/level bar, stat allocation, and virtual joystick.
 
 # ---- Top Banner ----
 @onready var settings_button: Button = %SettingsButton
@@ -26,6 +26,7 @@ var _displayed_pl: float = 1.0
 @onready var combat_view: Control = %CombatView
 @onready var training_panel: PanelContainer = %TrainingPanel
 @onready var gear_panel: PanelContainer = %GearPanel
+@onready var steps_shop_panel: PanelContainer = %StepsShopPanel
 
 # ---- Bottom Nav ----
 @onready var overworld_btn: Button = %OverworldBtn
@@ -60,11 +61,15 @@ var _displayed_pl: float = 1.0
 # ---- Gear ----
 @onready var gear_list: VBoxContainer = %GearList
 
+# ---- Steps Shop ----
+@onready var steps_balance_label: Label = %StepsBalance
+@onready var steps_shop_list: VBoxContainer = %StepsShopList
+
 # ---- Virtual Joystick ----
 @onready var virtual_joystick: Control = %VirtualJoystick
 @onready var player_node: CharacterBody2D = $World/Player
 
-enum ViewMode { OVERWORLD, TRAINING, COMBAT, GEAR }
+enum ViewMode { OVERWORLD, TRAINING, COMBAT, GEAR, STEPS_SHOP }
 var _current_view: int = ViewMode.OVERWORLD
 
 
@@ -89,7 +94,7 @@ func _ready() -> void:
 	stats_btn.pressed.connect(_open_stats)
 	mastery_btn.pressed.connect(_open_mastery)
 	managers_btn.pressed.connect(_on_managers_pressed)
-	pedometer_btn.pressed.connect(_on_pedometer_pressed)
+	pedometer_btn.pressed.connect(_open_steps_shop)
 	master_reset_btn.pressed.connect(_on_master_reset_pressed)
 
 	# Combat
@@ -103,12 +108,15 @@ func _ready() -> void:
 	_build_gear_shop()
 	_build_stats_list()
 	_build_mastery_list()
+	_build_steps_shop()
 
 
 func _process(_delta: float) -> void:
 	_update_banner()
 	_update_stats()
 	_update_exp_bar()
+	if _current_view == ViewMode.STEPS_SHOP:
+		_refresh_steps_shop()
 
 
 func _update_banner() -> void:
@@ -150,6 +158,7 @@ func _switch_to(view: int) -> void:
 	training_panel.visible = (view == ViewMode.TRAINING)
 	combat_view.visible = (view == ViewMode.COMBAT)
 	gear_panel.visible = (view == ViewMode.GEAR)
+	steps_shop_panel.visible = (view == ViewMode.STEPS_SHOP)
 	virtual_joystick.visible = (view == ViewMode.OVERWORLD)
 	overworld_btn.button_pressed = (view == ViewMode.OVERWORLD)
 	train_btn.button_pressed = (view == ViewMode.TRAINING)
@@ -340,16 +349,105 @@ func _on_managers_pressed() -> void:
 	menu_popup.visible = false
 
 
-func _on_pedometer_pressed() -> void:
+func _open_steps_shop() -> void:
 	menu_popup.visible = false
-	var result := GameState.spend_pedometer_for_upgrade()
-	if result["steps_spent"] > 0:
-		pass  # Upgrade applied
+	_refresh_steps_shop()
+	_switch_to(ViewMode.STEPS_SHOP)
 
 
 func _on_master_reset_pressed() -> void:
 	menu_popup.visible = false
 	GameState.perform_master_reset()
+
+
+# ---- Steps Shop ----
+
+const STEP_UPGRADES: Array[Dictionary] = [
+	{ "id": "speed_1", "name": "Swift Feet I", "cost": 50, "desc": "+10% movement speed", "type": "speed", "value": 10.0 },
+	{ "id": "speed_2", "name": "Swift Feet II", "cost": 150, "desc": "+25% movement speed", "type": "speed", "value": 25.0 },
+	{ "id": "speed_3", "name": "Swift Feet III", "cost": 400, "desc": "+50% movement speed", "type": "speed", "value": 50.0 },
+	{ "id": "pl_1", "name": "Inner Power I", "cost": 100, "desc": "+5 permanent Power Level", "type": "perm_pl", "value": 5.0 },
+	{ "id": "pl_2", "name": "Inner Power II", "cost": 300, "desc": "+15 permanent Power Level", "type": "perm_pl", "value": 15.0 },
+	{ "id": "pl_3", "name": "Inner Power III", "cost": 750, "desc": "+50 permanent Power Level", "type": "perm_pl", "value": 50.0 },
+	{ "id": "gold_1", "name": "Found Coins I", "cost": 25, "desc": "+50 Gold", "type": "gold", "value": 50.0 },
+	{ "id": "gold_2", "name": "Found Coins II", "cost": 75, "desc": "+200 Gold", "type": "gold", "value": 200.0 },
+	{ "id": "gold_3", "name": "Found Coins III", "cost": 200, "desc": "+500 Gold", "type": "gold", "value": 500.0 },
+	{ "id": "exp_1", "name": "Trail Wisdom I", "cost": 50, "desc": "+30 EXP", "type": "exp", "value": 30.0 },
+	{ "id": "exp_2", "name": "Trail Wisdom II", "cost": 150, "desc": "+100 EXP", "type": "exp", "value": 100.0 },
+]
+
+var _purchased_step_upgrades: Dictionary = {}
+
+
+func _build_steps_shop() -> void:
+	for child in steps_shop_list.get_children():
+		child.queue_free()
+
+	for item in STEP_UPGRADES:
+		var row := HBoxContainer.new()
+		row.name = "Step_%s" % item["id"]
+
+		var lbl := Label.new()
+		lbl.name = "Label"
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lbl.text = "%s — %s (%d steps)" % [item["name"], item["desc"], item["cost"]]
+		row.add_child(lbl)
+
+		var btn := Button.new()
+		btn.name = "BuyBtn"
+		btn.text = "Buy"
+		btn.custom_minimum_size = Vector2(56, 0)
+		btn.pressed.connect(_on_buy_step_upgrade.bind(item))
+		row.add_child(btn)
+
+		steps_shop_list.add_child(row)
+
+
+func _refresh_steps_shop() -> void:
+	steps_balance_label.text = "Steps: %d" % int(GameState.currencies.pedometer.steps)
+
+	var idx := 0
+	for item in STEP_UPGRADES:
+		if idx >= steps_shop_list.get_child_count():
+			break
+		var row: HBoxContainer = steps_shop_list.get_child(idx)
+		var btn: Button = row.get_node("BuyBtn")
+		var steps := GameState.currencies.pedometer.steps
+		var bought_count: int = _purchased_step_upgrades.get(item["id"], 0)
+
+		# Speed upgrades are one-time, others are repeatable
+		if item["type"] == "speed" and bought_count > 0:
+			btn.text = "Owned"
+			btn.disabled = true
+		elif steps < item["cost"]:
+			btn.text = "Buy"
+			btn.disabled = true
+		else:
+			btn.text = "Buy"
+			btn.disabled = false
+		idx += 1
+
+
+func _on_buy_step_upgrade(item: Dictionary) -> void:
+	var cost: float = item["cost"]
+	if GameState.currencies.pedometer.steps < cost:
+		return
+
+	GameState.currencies.pedometer.steps -= cost
+
+	match item["type"]:
+		"speed":
+			GameState.speed.apply_pedometer_upgrade(item["value"])
+		"perm_pl":
+			GameState.currencies.power_level.add_permanent(item["value"])
+		"gold":
+			GameState.currencies.gold.earn(item["value"])
+		"exp":
+			GameState.award_exp(item["value"])
+
+	var bought: int = _purchased_step_upgrades.get(item["id"], 0)
+	_purchased_step_upgrades[item["id"]] = bought + 1
+	_refresh_steps_shop()
 
 
 # ---- Gear Shop ----
