@@ -84,9 +84,9 @@ class PedometerState:
 		return { "steps_spent": spent, "speed_bonus_percent": bonus }
 
 	func current_milestone() -> int:
-		for i in range(PEDOMETER_MILESTONES.size() - 1, -1, -1):
-			if steps >= PEDOMETER_MILESTONES[i]:
-				return PEDOMETER_MILESTONES[i]
+		for i in range(Currencies.PEDOMETER_MILESTONES.size() - 1, -1, -1):
+			if steps >= Currencies.PEDOMETER_MILESTONES[i]:
+				return Currencies.PEDOMETER_MILESTONES[i]
 		return 0
 
 

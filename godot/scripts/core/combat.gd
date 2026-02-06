@@ -57,21 +57,21 @@ class MasteryState:
 	var themes: Dictionary = {}
 
 	func _init() -> void:
-		for theme in THEME_ORDER:
+		for theme in Combat.THEME_ORDER:
 			themes[theme] = ThemeMastery.new()
 
 	func award_xp(theme: int, amount: float) -> bool:
 		var mastery: ThemeMastery = themes[theme]
-		if mastery.level >= MAX_MASTERY_LEVEL:
+		if mastery.level >= Combat.MAX_MASTERY_LEVEL:
 			return false
 		mastery.xp += amount
 		mastery.total_xp += amount
-		var required := mastery_xp_required(mastery.level)
+		var required := Combat.mastery_xp_required(mastery.level)
 		var leveled := false
-		while mastery.xp >= required and mastery.level < MAX_MASTERY_LEVEL:
+		while mastery.xp >= required and mastery.level < Combat.MAX_MASTERY_LEVEL:
 			mastery.xp -= required
 			mastery.level += 1
-			required = mastery_xp_required(mastery.level)
+			required = Combat.mastery_xp_required(mastery.level)
 			leveled = true
 		return leveled
 
