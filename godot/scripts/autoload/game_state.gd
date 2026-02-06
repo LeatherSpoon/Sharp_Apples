@@ -99,12 +99,12 @@ func _tick_managers(elapsed_seconds: float) -> void:
 
 
 # ---- Movement ----
+# Pedometer steps are now added directly by the player script
+# based on actual distance traveled (1 step per 16px tile).
 
-func tick_movement(elapsed_seconds: float) -> float:
-	var spd := speed.effective_speed()
-	var steps := spd * elapsed_seconds
-	currencies.pedometer.add_steps(steps)
-	return steps
+func tick_movement(_elapsed_seconds: float) -> float:
+	# Kept for API compatibility; player now handles step counting directly.
+	return 0.0
 
 
 # ---- Pedometer spend ----

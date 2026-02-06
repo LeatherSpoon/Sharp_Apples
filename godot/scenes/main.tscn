@@ -253,21 +253,6 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("5_joystick")
 
-[node name="BaseRing" type="ColorRect" parent="UILayer/UI/VirtualJoystick"]
-visible = false
-offset_left = 40.0
-offset_top = 900.0
-offset_right = 180.0
-offset_bottom = 1040.0
-color = Color(1.0, 1.0, 1.0, 0.15)
-
-[node name="Thumb" type="ColorRect" parent="UILayer/UI/VirtualJoystick/BaseRing"]
-offset_left = 45.0
-offset_top = 45.0
-offset_right = 95.0
-offset_bottom = 95.0
-color = Color(1.0, 1.0, 1.0, 0.4)
-
 [node name="TrainingPanel" type="PanelContainer" parent="UILayer/UI"]
 unique_name_in_owner = true
 visible = false
