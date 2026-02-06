@@ -1,4 +1,4 @@
-class_name Environment
+class_name GameEnvironment
 ## Environment definitions and progression.
 ##
 ## 5 authored environments, each cycling to the next combat theme.
@@ -15,35 +15,35 @@ const ENVIRONMENTS: Array[Dictionary] = [
 		"id": "forest_dojo",
 		"name": "Forest Dojo",
 		"tier": 1,
-		"combat_theme": Combat.Theme.UNARMED,
+		"combat_theme": Combat.CombatTheme.UNARMED,
 		"description": "A tranquil woodland clearing where the first master teaches bare-handed combat.",
 	},
 	{
 		"id": "iron_fortress",
 		"name": "Iron Fortress",
 		"tier": 2,
-		"combat_theme": Combat.Theme.ARMED,
+		"combat_theme": Combat.CombatTheme.ARMED,
 		"description": "A towering fortress of dark iron, where bladed weapons define survival.",
 	},
 	{
 		"id": "wind_valley",
 		"name": "Wind Valley",
 		"tier": 3,
-		"combat_theme": Combat.Theme.RANGED,
+		"combat_theme": Combat.CombatTheme.RANGED,
 		"description": "Sweeping canyons with treacherous winds — perfect for ranged mastery.",
 	},
 	{
 		"id": "crystal_spire",
 		"name": "Crystal Spire",
 		"tier": 4,
-		"combat_theme": Combat.Theme.ENERGY,
+		"combat_theme": Combat.CombatTheme.ENERGY,
 		"description": "A crystalline tower pulsing with raw energy, where ki techniques reign.",
 	},
 	{
 		"id": "desert_temple",
 		"name": "Desert Temple",
 		"tier": 5,
-		"combat_theme": Combat.Theme.UNARMED,
+		"combat_theme": Combat.CombatTheme.UNARMED,
 		"description": "An ancient temple buried in sand. The cycle begins anew at greater power.",
 	},
 ]

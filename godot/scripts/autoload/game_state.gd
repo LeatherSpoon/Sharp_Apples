@@ -19,10 +19,10 @@ class CurrencyBundle:
 var currencies := CurrencyBundle.new()
 var variables := Variables.State.new()
 var mastery := Combat.MasteryState.new()
-var active_combat_theme: int = Combat.Theme.UNARMED
+var active_combat_theme: int = Combat.CombatTheme.UNARMED
 var speed := Speed.State.new()
 var managers := Managers.State.new()
-var environment := Environment.ProgressionState.new()
+var environment := GameEnvironment.ProgressionState.new()
 var equipment := Tools.EquipmentState.new()
 
 var total_play_time: float = 0.0

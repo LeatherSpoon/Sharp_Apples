@@ -4,8 +4,11 @@ extends Node
 
 # ---- Top Banner ----
 @onready var settings_button: Button = %SettingsButton
+@onready var power_level_value: Label = %PowerLevelValue
 @onready var power_level_label: Label = %PowerLevelLabel
 @onready var menu_button: Button = %MenuButton
+
+var _displayed_pl: float = 1.0  # Smoothly animated PL display
 
 # ---- Stats Bar ----
 @onready var gold_label: Label = %GoldLabel
@@ -51,9 +54,21 @@ func _process(_delta: float) -> void:
 func _update_banner() -> void:
 	var eff_pl := GameState.currencies.effective_power_level()
 	var perm := GameState.currencies.power_level.permanent
-	power_level_label.text = "PL %d" % int(eff_pl)
+
+	# Smooth number roll-up for satisfying display
+	if abs(_displayed_pl - eff_pl) > 0.5:
+		_displayed_pl = lerpf(_displayed_pl, eff_pl, 0.15)
+	else:
+		_displayed_pl = eff_pl
+
+	# Big number in the center
+	power_level_value.text = "%d" % int(_displayed_pl)
+
+	# Subtitle: show permanent bonus when it exists
 	if perm > 0:
-		power_level_label.text += " (+%d)" % int(perm)
+		power_level_label.text = "POWER LEVEL (+%d perm)" % int(perm)
+	else:
+		power_level_label.text = "POWER LEVEL"
 
 
 func _update_stats() -> void:
