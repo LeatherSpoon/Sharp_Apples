@@ -1,31 +1,121 @@
 /**
  * Core currencies for MyRPG.
  *
- * Power Level - the main "big number" for combat strength (always increasing, no cap)
+ * Power Level - NGU Idle-style "big number": earnable, spendable on upgrades,
+ *   resets to 1 with each new master. Has permanent + iterative layers.
  * Pedometer Count - lifetime steps, spend-all-or-nothing for speed upgrades
  * Gold - active economy currency (no passive generation)
  */
 
 // ---------------------------------------------------------------------------
-// Power Level
+// Power Level (NGU Idle-style)
 // ---------------------------------------------------------------------------
 
+/**
+ * Power Level has two layers, inspired by NGU Idle's rebirth model:
+ *
+ *   current    – The working number. Starts at 1 with each new master.
+ *                Increases via training/combat. Can be SPENT on upgrades.
+ *   permanent  – Baseline that persists across master resets. Accumulated
+ *                by purchasing permanent upgrades with current PL.
+ *
+ *   effective  = permanent + current  (used in combat formulas)
+ *
+ * Iterative upgrades cost current PL and are lost on master reset.
+ * Permanent upgrades cost current PL but add to permanent PL (at a rate).
+ * On master reset: current → 1, iterative upgrades wiped, permanent stays.
+ */
 export interface PowerLevelState {
-  /** Current power level value. Starts at 1, never decreases. */
-  value: number;
+  /** Working PL for this master cycle. Starts at 1, goes up and down. */
+  current: number;
+  /** Permanent PL baseline. Persists across master resets. */
+  permanent: number;
+  /** Total PL earned across all time (stat tracking, achievements). */
+  lifetimeEarned: number;
+  /** Total PL spent on all upgrades across all time. */
+  lifetimeSpent: number;
+  /** Number of master resets performed. */
+  timesReset: number;
 }
 
 export function createPowerLevel(): PowerLevelState {
-  return { value: 1 };
+  return {
+    current: 1,
+    permanent: 0,
+    lifetimeEarned: 0,
+    lifetimeSpent: 0,
+    timesReset: 0,
+  };
+}
+
+/** Effective Power Level used in all combat/progression formulas. */
+export function effectivePowerLevel(state: PowerLevelState): number {
+  return state.permanent + state.current;
 }
 
 /**
- * Increase power level by `amount`. Negative values are ignored so the
- * number can only go up.
+ * Earn current PL from training, combat victories, tournament milestones, etc.
  */
-export function addPowerLevel(state: PowerLevelState, amount: number): void {
+export function earnPowerLevel(state: PowerLevelState, amount: number): void {
   if (amount > 0) {
-    state.value += amount;
+    state.current += amount;
+    state.lifetimeEarned += amount;
+  }
+}
+
+/**
+ * Spend current PL on an iterative upgrade (lost on master reset).
+ * Returns true if the player had enough, false otherwise.
+ */
+export function spendPowerLevel(state: PowerLevelState, cost: number): boolean {
+  if (cost <= 0) return true;
+  if (state.current < cost) return false;
+  state.current -= cost;
+  state.lifetimeSpent += cost;
+  return true;
+}
+
+/**
+ * Spend current PL to buy a permanent upgrade.
+ *
+ * @param cost      Amount of current PL to spend.
+ * @param permGain  Amount added to permanent PL (can differ from cost for
+ *                  balance — e.g. spend 100 current, gain 10 permanent).
+ * @returns true if successful, false if insufficient current PL.
+ */
+export function buyPermanentUpgrade(
+  state: PowerLevelState,
+  cost: number,
+  permGain: number,
+): boolean {
+  if (cost <= 0) return true;
+  if (state.current < cost) return false;
+  state.current -= cost;
+  state.lifetimeSpent += cost;
+  state.permanent += permGain;
+  return true;
+}
+
+/**
+ * Reset current PL to 1 (new master transition).
+ * Permanent PL is preserved. Returns the current PL that was lost.
+ */
+export function resetPowerLevel(state: PowerLevelState): number {
+  const lost = state.current;
+  state.current = 1;
+  state.timesReset++;
+  return lost;
+}
+
+/**
+ * Add directly to permanent PL (for achievement rewards, pedometer bonuses, etc.).
+ */
+export function addPermanentPowerLevel(
+  state: PowerLevelState,
+  amount: number,
+): void {
+  if (amount > 0) {
+    state.permanent += amount;
   }
 }
 

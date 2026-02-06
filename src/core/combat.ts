@@ -207,6 +207,10 @@ const BASE_THEME_MULTIPLIER: Record<CombatTheme, number> = {
 
 export interface DamageParams {
   baseDamage: number;
+  /**
+   * The effective power level (permanent + current).
+   * Callers should pass `effectivePowerLevel(state.powerLevel)`.
+   */
   powerLevel: number;
   theme: CombatTheme;
   variables: ControllingVariables;
@@ -216,7 +220,9 @@ export interface DamageParams {
 /**
  * Calculate combat damage.
  *
- * Formula: BaseDamage × (1 + PowerLevel/100) × ThemeMultiplier × (1 + VariableScaling) × (1 + CrossThemeBonus)
+ * Formula: BaseDamage × (1 + EffectivePL / 100) × ThemeMultiplier × (1 + VariableScaling) × (1 + CrossThemeBonus)
+ *
+ * EffectivePL = permanent PL + current PL (see currencies.ts).
  */
 export function calculateDamage(params: DamageParams): number {
   const { baseDamage, powerLevel, theme, variables, mastery } = params;

@@ -13,7 +13,12 @@ export {
   type PedometerSpendResult,
   PEDOMETER_MILESTONES,
   createPowerLevel,
-  addPowerLevel,
+  effectivePowerLevel,
+  earnPowerLevel,
+  spendPowerLevel,
+  buyPermanentUpgrade,
+  resetPowerLevel,
+  addPermanentPowerLevel,
   createPedometer,
   addSteps,
   pedometerSpeedBonus,
@@ -129,10 +134,13 @@ export {
 // Game State (central container)
 export {
   type GameState,
+  type MasterResetResult,
   createGameState,
   tickManagers,
   tickMovement,
   spendPedometerForUpgrade,
   requiredCombatTheme,
+  getEffectivePowerLevel,
+  performMasterReset,
   tick,
 } from "./core/game-state.js";

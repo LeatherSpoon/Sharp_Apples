@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   createPowerLevel,
-  addPowerLevel,
+  effectivePowerLevel,
+  earnPowerLevel,
+  spendPowerLevel,
+  buyPermanentUpgrade,
+  resetPowerLevel,
+  addPermanentPowerLevel,
   createPedometer,
   addSteps,
   pedometerSpeedBonus,
@@ -10,36 +15,184 @@ import {
   createGold,
   earnGold,
   spendGold,
-  PEDOMETER_MILESTONES,
 } from "../core/currencies.js";
 
 // ---------------------------------------------------------------------------
-// Power Level
+// Power Level (NGU Idle-style)
 // ---------------------------------------------------------------------------
 
 describe("PowerLevel", () => {
-  it("starts at 1", () => {
+  it("starts at current=1, permanent=0", () => {
     const pl = createPowerLevel();
-    expect(pl.value).toBe(1);
+    expect(pl.current).toBe(1);
+    expect(pl.permanent).toBe(0);
+    expect(pl.lifetimeEarned).toBe(0);
+    expect(pl.lifetimeSpent).toBe(0);
+    expect(pl.timesReset).toBe(0);
   });
 
-  it("increases by positive amounts", () => {
+  it("effective PL = permanent + current", () => {
     const pl = createPowerLevel();
-    addPowerLevel(pl, 10);
-    expect(pl.value).toBe(11);
+    expect(effectivePowerLevel(pl)).toBe(1); // 0 + 1
+    pl.permanent = 50;
+    expect(effectivePowerLevel(pl)).toBe(51); // 50 + 1
+  });
+});
+
+describe("earnPowerLevel", () => {
+  it("increases current PL and lifetime", () => {
+    const pl = createPowerLevel();
+    earnPowerLevel(pl, 10);
+    expect(pl.current).toBe(11);
+    expect(pl.lifetimeEarned).toBe(10);
   });
 
-  it("ignores negative amounts (never decreases)", () => {
+  it("ignores negative and zero amounts", () => {
     const pl = createPowerLevel();
-    addPowerLevel(pl, 10);
-    addPowerLevel(pl, -5);
-    expect(pl.value).toBe(11);
+    earnPowerLevel(pl, -5);
+    earnPowerLevel(pl, 0);
+    expect(pl.current).toBe(1);
+    expect(pl.lifetimeEarned).toBe(0);
+  });
+});
+
+describe("spendPowerLevel (iterative upgrades)", () => {
+  it("deducts current PL and returns true when affordable", () => {
+    const pl = createPowerLevel();
+    earnPowerLevel(pl, 99); // current = 100
+    expect(spendPowerLevel(pl, 40)).toBe(true);
+    expect(pl.current).toBe(60);
+    expect(pl.lifetimeSpent).toBe(40);
   });
 
-  it("ignores zero", () => {
+  it("returns false and does nothing when insufficient", () => {
     const pl = createPowerLevel();
-    addPowerLevel(pl, 0);
-    expect(pl.value).toBe(1);
+    expect(spendPowerLevel(pl, 5)).toBe(false);
+    expect(pl.current).toBe(1); // unchanged
+  });
+
+  it("spending 0 or negative always succeeds", () => {
+    const pl = createPowerLevel();
+    expect(spendPowerLevel(pl, 0)).toBe(true);
+    expect(spendPowerLevel(pl, -10)).toBe(true);
+  });
+
+  it("current PL can go down to 0", () => {
+    const pl = createPowerLevel();
+    earnPowerLevel(pl, 9); // current = 10
+    expect(spendPowerLevel(pl, 10)).toBe(true);
+    expect(pl.current).toBe(0);
+  });
+});
+
+describe("buyPermanentUpgrade", () => {
+  it("spends current PL and adds to permanent PL", () => {
+    const pl = createPowerLevel();
+    earnPowerLevel(pl, 99); // current = 100
+    expect(buyPermanentUpgrade(pl, 100, 10)).toBe(true);
+    expect(pl.current).toBe(0);
+    expect(pl.permanent).toBe(10);
+    expect(pl.lifetimeSpent).toBe(100);
+  });
+
+  it("fails when insufficient current PL", () => {
+    const pl = createPowerLevel();
+    expect(buyPermanentUpgrade(pl, 50, 5)).toBe(false);
+    expect(pl.permanent).toBe(0);
+  });
+
+  it("conversion rate can differ from cost", () => {
+    const pl = createPowerLevel();
+    earnPowerLevel(pl, 999); // current = 1000
+    buyPermanentUpgrade(pl, 500, 25); // spend 500, get 25 perm
+    expect(pl.current).toBe(500);
+    expect(pl.permanent).toBe(25);
+    expect(effectivePowerLevel(pl)).toBe(525);
+  });
+});
+
+describe("resetPowerLevel (master transition)", () => {
+  it("resets current to 1 and preserves permanent", () => {
+    const pl = createPowerLevel();
+    earnPowerLevel(pl, 999); // current = 1000
+    pl.permanent = 50;
+    const lost = resetPowerLevel(pl);
+
+    expect(lost).toBe(1000);
+    expect(pl.current).toBe(1);
+    expect(pl.permanent).toBe(50); // preserved
+    expect(pl.timesReset).toBe(1);
+  });
+
+  it("repeated resets increment counter", () => {
+    const pl = createPowerLevel();
+    resetPowerLevel(pl);
+    resetPowerLevel(pl);
+    resetPowerLevel(pl);
+    expect(pl.timesReset).toBe(3);
+    expect(pl.current).toBe(1); // always 1 after reset
+  });
+
+  it("effective PL is permanent + 1 after reset", () => {
+    const pl = createPowerLevel();
+    earnPowerLevel(pl, 99);
+    buyPermanentUpgrade(pl, 50, 10); // perm = 10
+    resetPowerLevel(pl);
+    expect(effectivePowerLevel(pl)).toBe(11); // 10 + 1
+  });
+});
+
+describe("addPermanentPowerLevel", () => {
+  it("adds directly to permanent (for achievements, etc)", () => {
+    const pl = createPowerLevel();
+    addPermanentPowerLevel(pl, 25);
+    expect(pl.permanent).toBe(25);
+    expect(effectivePowerLevel(pl)).toBe(26); // 25 + 1
+  });
+
+  it("ignores negative amounts", () => {
+    const pl = createPowerLevel();
+    addPermanentPowerLevel(pl, -10);
+    expect(pl.permanent).toBe(0);
+  });
+});
+
+describe("PowerLevel full cycle (NGU Idle loop)", () => {
+  it("simulates a multi-master progression cycle", () => {
+    const pl = createPowerLevel();
+
+    // === Master 1 ===
+    earnPowerLevel(pl, 99); // train up to 100 current
+    expect(effectivePowerLevel(pl)).toBe(100);
+
+    // Spend some on iterative upgrades
+    spendPowerLevel(pl, 30); // 70 current left
+
+    // Buy a permanent upgrade before the reset
+    buyPermanentUpgrade(pl, 50, 5); // spend 50 current → +5 permanent
+    expect(pl.current).toBe(20);
+    expect(pl.permanent).toBe(5);
+
+    // Tournament defeat → master reset
+    resetPowerLevel(pl);
+    expect(pl.current).toBe(1);
+    expect(pl.permanent).toBe(5);
+    expect(effectivePowerLevel(pl)).toBe(6); // stronger baseline than cycle 1
+
+    // === Master 2 ===
+    earnPowerLevel(pl, 149); // train up to 150 current
+    expect(effectivePowerLevel(pl)).toBe(155); // 5 + 150
+
+    // More permanent upgrades
+    buyPermanentUpgrade(pl, 100, 10); // spend 100 → +10 perm
+    expect(pl.permanent).toBe(15);
+
+    resetPowerLevel(pl);
+    expect(effectivePowerLevel(pl)).toBe(16); // even stronger baseline
+
+    // Lifetime tracking
+    expect(pl.lifetimeEarned).toBe(99 + 149);
+    expect(pl.timesReset).toBe(2);
   });
 });
 

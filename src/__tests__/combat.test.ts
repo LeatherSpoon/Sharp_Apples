@@ -13,6 +13,7 @@ import {
   isExpectedLoss,
 } from "../core/combat.js";
 import { createControllingVariables, VariableKind, trainVariable } from "../core/variables.js";
+import { effectivePowerLevel, createPowerLevel, earnPowerLevel } from "../core/currencies.js";
 
 describe("theme cycling", () => {
   it("cycles through all four themes in order", () => {
@@ -157,18 +158,24 @@ describe("calculateDamage", () => {
     expect(dmg).toBe(100);
   });
 
-  it("power level multiplies damage", () => {
+  it("effective power level multiplies damage", () => {
     const vars = createControllingVariables();
     const mastery = createMasteryState();
+    // Simulate: 50 permanent + 51 current = 101 effective
+    const pl = createPowerLevel();
+    pl.permanent = 50;
+    earnPowerLevel(pl, 50); // current = 51
+    const eff = effectivePowerLevel(pl); // 101
+
     const dmg = calculateDamage({
       baseDamage: 100,
-      powerLevel: 100,
+      powerLevel: eff,
       theme: CombatTheme.Unarmed,
       variables: vars,
       mastery,
     });
-    // 100 * (1 + 100/100) = 100 * 2 = 200
-    expect(dmg).toBe(200);
+    // 100 * (1 + 101/100) = 100 * 2.01 = 201
+    expect(dmg).toBeCloseTo(201);
   });
 
   it("variable scaling adds damage", () => {

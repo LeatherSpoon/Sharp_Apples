@@ -15,7 +15,9 @@ import {
   createGold,
   addSteps,
   spendPedometer,
-  addPowerLevel,
+  effectivePowerLevel,
+  addPermanentPowerLevel,
+  resetPowerLevel,
 } from "./currencies.js";
 
 import {
@@ -51,6 +53,7 @@ import {
   type ProgressionState,
   createProgressionState,
   currentCombatTheme,
+  advanceEnvironment,
 } from "./environment.js";
 
 import { TrainingActivity } from "./variables.js";
@@ -163,7 +166,7 @@ export function tickMovement(state: GameState, elapsedSeconds: number): number {
 }
 
 /**
- * Spend the pedometer and apply the speed upgrade (or power level bonus
+ * Spend the pedometer and apply the speed upgrade (or permanent PL bonus
  * if speed is already capped).
  */
 export function spendPedometerForUpgrade(state: GameState): {
@@ -180,9 +183,9 @@ export function spendPedometerForUpgrade(state: GameState): {
     speedBonusApplied = result.speedBonusPercent;
     applyPedometerSpeedUpgrade(state.speed, result.speedBonusPercent);
   } else {
-    // Speed is capped — award Power Level achievement bonus instead
+    // Speed is capped — award permanent Power Level bonus instead
     powerLevelBonusApplied = Math.floor(result.speedBonusPercent / 10);
-    addPowerLevel(state.powerLevel, powerLevelBonusApplied);
+    addPermanentPowerLevel(state.powerLevel, powerLevelBonusApplied);
   }
 
   return {
@@ -198,6 +201,52 @@ export function spendPedometerForUpgrade(state: GameState): {
 export function requiredCombatTheme(state: GameState): CombatTheme {
   return currentCombatTheme(state.progression);
 }
+
+/** Get the effective PL for display / combat formulas. */
+export function getEffectivePowerLevel(state: GameState): number {
+  return effectivePowerLevel(state.powerLevel);
+}
+
+// ---------------------------------------------------------------------------
+// Master reset (new master transition)
+// ---------------------------------------------------------------------------
+
+export interface MasterResetResult {
+  /** Current PL that was lost. */
+  currentPLLost: number;
+  /** The new environment name (or null if no more authored environments). */
+  newEnvironmentName: string | null;
+  /** The combat theme of the new environment. */
+  newTheme: CombatTheme | null;
+}
+
+/**
+ * Perform a master reset: advance to the next environment, reset current PL
+ * to 1, preserve permanent PL. Called after tournament defeat.
+ *
+ * This is the core "rebirth" loop of the game. The player loses their
+ * current PL investment but keeps everything permanent, arriving at a new
+ * master stronger than they started the previous cycle.
+ */
+export function performMasterReset(state: GameState): MasterResetResult {
+  const currentPLLost = resetPowerLevel(state.powerLevel);
+
+  const newEnv = advanceEnvironment(state.progression);
+
+  if (newEnv) {
+    state.activeCombatTheme = newEnv.combatTheme;
+  }
+
+  return {
+    currentPLLost,
+    newEnvironmentName: newEnv?.name ?? null,
+    newTheme: newEnv?.combatTheme ?? null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Master tick
+// ---------------------------------------------------------------------------
 
 /**
  * Master game-loop tick. Call once per frame / interval.

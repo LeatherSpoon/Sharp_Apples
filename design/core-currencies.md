@@ -8,27 +8,52 @@ MyRPG is a loop-driven RPG built around themed environments, master-student trai
 
 ## Core Currencies
 
-### 1. Power Level
+### 1. Power Level (NGU Idle-style)
 
-**Purpose:** The main "big number" representing overall progression and combat strength.
+**Purpose:** The main "big number" representing overall progression and combat strength. Inspired by NGU Idle's rebirth model — earnable, spendable on upgrades, resets to 1 with each new master.
+
+#### Two-Layer Model
+
+| Layer | Behavior | Resets on New Master? |
+|-------|----------|----------------------|
+| **Current PL** | Working number. Starts at 1 each master cycle. Earned through training/combat. Spent on upgrades. | Yes (→ 1) |
+| **Permanent PL** | Baseline that accumulates across all master cycles. Earned by purchasing permanent upgrades with current PL, or from achievements/milestones. | No (persists forever) |
+
+**Effective Power Level = Permanent PL + Current PL** (used in all combat/progression formulas)
 
 | Property | Value |
 |----------|-------|
-| Type | Persistent, always-increasing |
-| Starting Value | 1 |
+| Starting Current PL | 1 (per master cycle) |
+| Starting Permanent PL | 0 |
 | Cap | None (infinite scaling) |
 | Affects | Combat damage, combat defense, opponent difficulty scaling |
 | Does NOT affect | Movement speed |
 
-**Sources of Power Level Increase:**
+**Sources of Current PL Increase:**
 - Completing training sessions with Masters
 - Defeating opponents in combat
 - Finishing environment bosses
 - Tournament performance milestones
 - Combat theme mastery bonuses
-- Controlling variable upgrades (Strength, Dexterity, etc.)
 
-**Design Note:** Power Level is the player's primary sense of progression. It should always feel like it's growing, even during "reset" events.
+**Spending Current PL:**
+- **Iterative Upgrades:** Boost power during this master cycle. Lost on master reset. Costs current PL.
+- **Permanent Upgrades:** Spend current PL to add to permanent PL (at a conversion rate, e.g., spend 100 current → gain 10 permanent). Persists forever.
+
+**Master Reset (New Master Transition):**
+1. Current PL resets to 1
+2. All iterative upgrades are lost
+3. Permanent PL is preserved
+4. Player arrives at new master with a higher baseline than the previous cycle
+
+**The Core NGU Loop:**
+```
+Train Current PL → Spend on Iterative (short-term power) + Permanent (long-term investment)
+  → Tournament Defeat → Master Reset → Current PL = 1, but Permanent baseline is higher
+  → Train faster this cycle → Repeat
+```
+
+**Design Note:** The effective Power Level should always feel like it's growing across resets. Each master cycle lets the player reach higher current PL peaks (due to the permanent baseline), creating a satisfying "number go up" spiral even through resets.
 
 ---
 
