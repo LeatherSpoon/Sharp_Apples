@@ -1,9 +1,10 @@
-[gd_scene load_steps=8 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=9 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scripts/ui/main_ui.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/overworld/player.gd" id="2_player"]
 [ext_resource type="Script" path="res://scripts/combat/combat_view.gd" id="3_combat"]
 [ext_resource type="Script" path="res://scripts/ui/training_panel.gd" id="4_training"]
+[ext_resource type="Script" path="res://scripts/overworld/virtual_joystick.gd" id="5_joystick"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(14, 14)
@@ -156,9 +157,33 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -120.0
+offset_top = -140.0
 grow_horizontal = 2
 grow_vertical = 0
+
+[node name="LevelBar" type="HBoxContainer" parent="UILayer/UI/BottomArea"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="LevelLabel" type="Label" parent="UILayer/UI/BottomArea/LevelBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Lv.1"
+
+[node name="EXPBar" type="ProgressBar" parent="UILayer/UI/BottomArea/LevelBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 18)
+max_value = 100.0
+value = 0.0
+show_percentage = false
+
+[node name="EXPLabel" type="Label" parent="UILayer/UI/BottomArea/LevelBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "0 / 100 EXP"
 
 [node name="StatsBar" type="HBoxContainer" parent="UILayer/UI/BottomArea"]
 layout_mode = 2
@@ -216,6 +241,32 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Gear"
+
+[node name="VirtualJoystick" type="Control" parent="UILayer/UI"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_joystick")
+
+[node name="BaseRing" type="ColorRect" parent="UILayer/UI/VirtualJoystick"]
+visible = false
+offset_left = 40.0
+offset_top = 900.0
+offset_right = 180.0
+offset_bottom = 1040.0
+color = Color(1.0, 1.0, 1.0, 0.15)
+
+[node name="Thumb" type="ColorRect" parent="UILayer/UI/VirtualJoystick/BaseRing"]
+offset_left = 45.0
+offset_top = 45.0
+offset_right = 95.0
+offset_bottom = 95.0
+color = Color(1.0, 1.0, 1.0, 0.4)
 
 [node name="TrainingPanel" type="PanelContainer" parent="UILayer/UI"]
 unique_name_in_owner = true
@@ -318,6 +369,13 @@ layout_mode = 2
 text = "100 / 100"
 horizontal_alignment = 1
 
+[node name="OpponentCooldownLabel" type="Label" parent="UILayer/UI/CombatView/CombatLayout/OpponentArea"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = ""
+horizontal_alignment = 1
+
 [node name="VSLabel" type="Label" parent="UILayer/UI/CombatView/CombatLayout"]
 layout_mode = 2
 text = "VS"
@@ -344,6 +402,25 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "100 / 100"
 horizontal_alignment = 1
+
+[node name="CooldownArea" type="VBoxContainer" parent="UILayer/UI/CombatView/CombatLayout"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="CooldownLabel" type="Label" parent="UILayer/UI/CombatView/CombatLayout/CooldownArea"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Ready!"
+horizontal_alignment = 1
+
+[node name="CooldownBar" type="ProgressBar" parent="UILayer/UI/CombatView/CombatLayout/CooldownArea"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 12)
+max_value = 1.0
+value = 1.0
+show_percentage = false
 
 [node name="ActionButtons" type="HBoxContainer" parent="UILayer/UI/CombatView/CombatLayout"]
 unique_name_in_owner = true
@@ -377,6 +454,43 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Result"
 horizontal_alignment = 1
+
+[node name="GearPanel" type="PanelContainer" parent="UILayer/UI"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchor_left = 0.05
+anchor_top = 0.06
+anchor_right = 0.95
+anchor_bottom = 0.88
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="GearVBox" type="VBoxContainer" parent="UILayer/UI/GearPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="GearTitle" type="Label" parent="UILayer/UI/GearPanel/GearVBox"]
+layout_mode = 2
+text = "GEAR SHOP"
+horizontal_alignment = 1
+
+[node name="GearDesc" type="Label" parent="UILayer/UI/GearPanel/GearVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Buy tools to improve training speed."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="GearSep" type="HSeparator" parent="UILayer/UI/GearPanel/GearVBox"]
+layout_mode = 2
+
+[node name="GearList" type="VBoxContainer" parent="UILayer/UI/GearPanel/GearVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 4
 
 [node name="SettingsPopup" type="PanelContainer" parent="UILayer/UI"]
 unique_name_in_owner = true
@@ -420,6 +534,7 @@ step = 0.05
 value = 0.8
 
 [node name="CloseBtn" type="Button" parent="UILayer/UI/SettingsPopup/SettingsVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "Close"
 
@@ -445,26 +560,108 @@ text = "MENU"
 horizontal_alignment = 1
 
 [node name="StatsBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "Character Stats"
 
 [node name="MasteryBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "Mastery Progress"
 
 [node name="ManagersBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "Managers"
 
 [node name="PedometerBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "Spend Pedometer"
 
 [node name="MasterResetBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "Challenge Master (Reset)"
 
-[node name="CloseBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+[node name="CloseMenuBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[node name="StatsPopup" type="PanelContainer" parent="UILayer/UI"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchor_left = 0.05
+anchor_top = 0.06
+anchor_right = 0.95
+anchor_bottom = 0.7
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_popup")
+
+[node name="StatsVBox" type="VBoxContainer" parent="UILayer/UI/StatsPopup"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StatsTitle" type="Label" parent="UILayer/UI/StatsPopup/StatsVBox"]
+layout_mode = 2
+text = "CHARACTER STATS"
+horizontal_alignment = 1
+
+[node name="StatPointsLabel" type="Label" parent="UILayer/UI/StatsPopup/StatsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Stat Points: 0"
+horizontal_alignment = 1
+
+[node name="StatsSep" type="HSeparator" parent="UILayer/UI/StatsPopup/StatsVBox"]
+layout_mode = 2
+
+[node name="StatsList" type="VBoxContainer" parent="UILayer/UI/StatsPopup/StatsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+
+[node name="CloseStatsBtn" type="Button" parent="UILayer/UI/StatsPopup/StatsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[node name="MasteryPopup" type="PanelContainer" parent="UILayer/UI"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchor_left = 0.05
+anchor_top = 0.06
+anchor_right = 0.95
+anchor_bottom = 0.6
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_popup")
+
+[node name="MasteryVBox" type="VBoxContainer" parent="UILayer/UI/MasteryPopup"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="MasteryTitle" type="Label" parent="UILayer/UI/MasteryPopup/MasteryVBox"]
+layout_mode = 2
+text = "MASTERY PROGRESS"
+horizontal_alignment = 1
+
+[node name="MasterySep" type="HSeparator" parent="UILayer/UI/MasteryPopup/MasteryVBox"]
+layout_mode = 2
+
+[node name="MasteryList" type="VBoxContainer" parent="UILayer/UI/MasteryPopup/MasteryVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="CloseMasteryBtn" type="Button" parent="UILayer/UI/MasteryPopup/MasteryVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "Close"
 

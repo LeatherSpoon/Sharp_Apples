@@ -27,6 +27,15 @@ var equipment := Tools.EquipmentState.new()
 
 var total_play_time: float = 0.0
 
+# ---- EXP / Level system ----
+var player_level: int = 1
+var player_exp: float = 0.0
+var stat_points: int = 0
+var total_victories: int = 0
+
+const BASE_EXP_REQUIRED: float = 50.0
+const EXP_SCALING: float = 1.2
+
 # ---- Signals ----
 
 signal power_level_changed(effective_pl: float)
@@ -34,6 +43,34 @@ signal gold_changed(balance: float)
 signal variable_trained(kind: int, new_value: float)
 signal environment_changed(env_name: String)
 signal master_reset_performed(current_pl_lost: float)
+signal player_leveled_up(new_level: int, stat_points_available: int)
+
+
+# ---- EXP helpers ----
+
+func exp_required_for_level(level: int) -> float:
+	return BASE_EXP_REQUIRED * pow(EXP_SCALING, level - 1)
+
+
+func award_exp(amount: float) -> void:
+	if amount <= 0:
+		return
+	player_exp += amount
+	var required := exp_required_for_level(player_level)
+	while player_exp >= required:
+		player_exp -= required
+		player_level += 1
+		stat_points += 1
+		required = exp_required_for_level(player_level)
+		player_leveled_up.emit(player_level, stat_points)
+
+
+func spend_stat_point(kind: int) -> bool:
+	if stat_points <= 0:
+		return false
+	stat_points -= 1
+	variables.train(kind, 1.0)
+	return true
 
 
 # ---- Tick ----
@@ -44,6 +81,8 @@ func _process(delta: float) -> void:
 
 func tick(elapsed_seconds: float) -> void:
 	total_play_time += elapsed_seconds
+	# Passive Power Level: +1 per second
+	currencies.power_level.earn(elapsed_seconds)
 	_tick_managers(elapsed_seconds)
 
 
