@@ -73,7 +73,6 @@ func _build_activity_buttons() -> void:
 
 		var desc := Label.new()
 		desc.name = "Desc"
-		desc.theme_override_font_sizes = { "font_size": 10 }
 		desc.text = ACTIVITY_DESCRIPTIONS.get(activity_key, "")
 		desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		desc.add_theme_font_size_override("font_size", 10)
