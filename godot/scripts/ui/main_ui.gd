@@ -85,6 +85,9 @@ var _pl_shop_list: VBoxContainer = null
 var _pl_shop_balance_label: Label = null
 var _meditation_popup: PanelContainer = null
 var _meditation_info_label: Label = null
+var _meditate_confirm_btn: Button = null
+var _cutscene_overlay: ColorRect = null
+var _cutscene_label: Label = null
 var _step_alloc_label: Label = null
 var _combat_stats_label: Label = null
 
@@ -139,7 +142,7 @@ func _ready() -> void:
 	managers_btn.pressed.connect(_on_managers_pressed)
 	pl_shop_menu_btn.pressed.connect(_open_pl_shop)
 	pedometer_btn.pressed.connect(_open_steps_shop)
-	master_reset_btn.text = "Meditate (Rebirth)"
+	master_reset_btn.text = "Meditate (Prestige)"
 	master_reset_btn.pressed.connect(_open_meditation)
 
 	# Combat
@@ -489,8 +492,10 @@ func _on_buy_pl_item(item: Dictionary, cost: float) -> void:
 
 
 # ===========================================================================
-#  MEDITATION
+#  MEDITATION (Prestige / Rebirth)
 # ===========================================================================
+
+const MEDITATION_MIN_SECONDS: float = 300.0  # 5 min minimum before allowing prestige
 
 func _create_meditation_popup() -> void:
 	var ui_root: Control = $UILayer/UI
@@ -500,41 +505,77 @@ func _create_meditation_popup() -> void:
 	_meditation_popup.visible = false
 	_meditation_popup.layout_mode = 1
 	_meditation_popup.anchors_preset = Control.PRESET_FULL_RECT
-	_meditation_popup.anchor_left = 0.1
-	_meditation_popup.anchor_top = 0.1
-	_meditation_popup.anchor_right = 0.9
-	_meditation_popup.anchor_bottom = 0.7
+	_meditation_popup.anchor_left = 0.05
+	_meditation_popup.anchor_top = 0.06
+	_meditation_popup.anchor_right = 0.95
+	_meditation_popup.anchor_bottom = 0.88
 	_meditation_popup.add_theme_stylebox_override("panel", _make_panel_style())
 	ui_root.add_child(_meditation_popup)
 
 	var vbox := VBoxContainer.new()
 	vbox.layout_mode = 2
-	vbox.add_theme_constant_override("separation", 10)
+	vbox.add_theme_constant_override("separation", 8)
 	_meditation_popup.add_child(vbox)
 
 	var title := Label.new()
-	title.text = "MEDITATION"
+	title.text = "PRESTIGE — MEDITATION"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 16)
 	vbox.add_child(title)
 
-	_meditation_info_label = Label.new()
-	_meditation_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_meditation_info_label.add_theme_font_size_override("font_size", 11)
-	vbox.add_child(_meditation_info_label)
+	var subtitle := Label.new()
+	subtitle.text = "Sit on your mat and start anew — stronger than before."
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", 10)
+	subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.9))
+	vbox.add_child(subtitle)
 
 	var sep := HSeparator.new()
 	vbox.add_child(sep)
 
-	var meditate_btn := Button.new()
-	meditate_btn.text = "Meditate Now"
-	meditate_btn.custom_minimum_size = Vector2(0, 44)
-	meditate_btn.pressed.connect(_do_meditation)
-	vbox.add_child(meditate_btn)
+	_meditation_info_label = Label.new()
+	_meditation_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_meditation_info_label.add_theme_font_size_override("font_size", 11)
+	_meditation_info_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_meditation_info_label)
+
+	var sep2 := HSeparator.new()
+	vbox.add_child(sep2)
+
+	_meditate_confirm_btn = Button.new()
+	_meditate_confirm_btn.text = "Begin Meditation"
+	_meditate_confirm_btn.custom_minimum_size = Vector2(0, 48)
+	_meditate_confirm_btn.pressed.connect(_do_meditation)
+	vbox.add_child(_meditate_confirm_btn)
 
 	var close_btn := Button.new()
 	close_btn.text = "Not Yet"
 	close_btn.pressed.connect(func(): _meditation_popup.visible = false)
 	vbox.add_child(close_btn)
+
+	# Cutscene overlay (full-screen, hidden by default)
+	_cutscene_overlay = ColorRect.new()
+	_cutscene_overlay.name = "CutsceneOverlay"
+	_cutscene_overlay.visible = false
+	_cutscene_overlay.layout_mode = 1
+	_cutscene_overlay.anchors_preset = Control.PRESET_FULL_RECT
+	_cutscene_overlay.color = Color(0, 0, 0, 0)
+	_cutscene_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	ui_root.add_child(_cutscene_overlay)
+
+	_cutscene_label = Label.new()
+	_cutscene_label.layout_mode = 1
+	_cutscene_label.anchors_preset = Control.PRESET_CENTER
+	_cutscene_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_cutscene_label.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_cutscene_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cutscene_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_cutscene_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_cutscene_label.add_theme_font_size_override("font_size", 16)
+	_cutscene_label.add_theme_color_override("font_color", Color(1, 1, 1))
+	_cutscene_label.custom_minimum_size = Vector2(300, 200)
+	_cutscene_label.text = ""
+	_cutscene_overlay.add_child(_cutscene_label)
 
 
 func _open_meditation() -> void:
@@ -555,31 +596,81 @@ func _refresh_meditation_info() -> void:
 	var time_pct := time_factor * time_factor * 100.0
 
 	var text := ""
-	text += "Meditation resets your Power Level to 1 but makes it grow FASTER.\n"
-	text += "Longer sessions = MUCH bigger rewards.\n\n"
+	text += "Meditation is a rebirth. Your Power Level resets to 1,\n"
+	text += "but your PL growth becomes permanently faster.\n"
+	text += "The longer you wait between rebirths, the greater the reward.\n\n"
 	text += "Current PL: %d\n" % int(pl)
-	text += "Session time: %.0f min\n" % time_min
-	text += "Time strength: %.0f%%\n" % time_pct
-	text += "Current multiplier: x%.2f\n" % GameState.meditation_multiplier
-	text += "Multiplier gain now: +%.3f\n" % multiplier_gain
-	text += "Total meditations: %d\n\n" % GameState.meditation_count
-	if time_min < 10:
-		text += "Too early! Rewards are almost nothing. Keep training.\n"
+	text += "Session length: %.0f min\n" % time_min
+	text += "Session strength: %.0f%%\n" % time_pct
+	text += "Growth multiplier: x%.2f\n" % GameState.meditation_multiplier
+	text += "Gain if you prestige now: +%.3f\n" % multiplier_gain
+	text += "Total rebirths: %d\n\n" % GameState.meditation_count
+
+	if time_sec < MEDITATION_MIN_SECONDS:
+		var remaining := (MEDITATION_MIN_SECONDS - time_sec) / 60.0
+		text += "Too soon! You must wait %.0f more min before meditating.\n" % remaining
+	elif time_min < 15:
+		text += "Very low reward. Keep training for a better bonus.\n"
 	elif time_min < 30:
-		text += "Rewards are growing... 30+ min for a strong bonus.\n"
+		text += "Reward is growing. 30+ min for a solid bonus.\n"
 	elif time_min < 60:
-		text += "Good session! Reward is solid.\n"
+		text += "Good session! Solid growth reward.\n"
 	else:
-		text += "Excellent patience! Near-maximum time bonus.\n"
-	text += "\nKEPT: Attack, Defense, Skills, Steps, Gold, Mastery\n"
-	text += "RESET: Power Level, Bosses, Environment"
+		text += "Excellent patience! Near-maximum reward.\n"
+
+	text += "\nKEPT: Attack, Defense, Skills, Steps, Gold, Mastery, PL Shop\n"
+	text += "RESET: Power Level (to 1), Bosses, Environment"
 
 	_meditation_info_label.text = text
 
+	# Anti-spam: disable button if session is too short
+	if _meditate_confirm_btn:
+		if time_sec < MEDITATION_MIN_SECONDS:
+			_meditate_confirm_btn.disabled = true
+			_meditate_confirm_btn.text = "Too Soon (%.0f min left)" % ((MEDITATION_MIN_SECONDS - time_sec) / 60.0)
+		else:
+			_meditate_confirm_btn.disabled = false
+			_meditate_confirm_btn.text = "Begin Meditation"
+
 
 func _do_meditation() -> void:
-	var result := GameState.perform_meditation()
 	_meditation_popup.visible = false
+	# Play cutscene: fade to black → show text → perform reset → show result → fade back
+	_play_prestige_cutscene()
+
+
+func _play_prestige_cutscene() -> void:
+	_cutscene_overlay.visible = true
+	_cutscene_overlay.color = Color(0, 0, 0, 0)
+	_cutscene_label.text = ""
+
+	var tween := create_tween()
+
+	# Phase 1: Fade to black (1s)
+	tween.tween_property(_cutscene_overlay, "color", Color(0, 0, 0, 1), 1.0)
+
+	# Phase 2: Show meditation text sequence
+	tween.tween_callback(func(): _cutscene_label.text = "You sit on the mat...")
+	tween.tween_interval(1.5)
+	tween.tween_callback(func(): _cutscene_label.text = "You close your eyes...\nYour power fades away...")
+	tween.tween_interval(1.5)
+
+	# Phase 3: Perform the actual reset
+	tween.tween_callback(func():
+		var result := GameState.perform_meditation()
+		var gain: float = result["multiplier_gained"]
+		var new_mult: float = result["new_multiplier"]
+		_cutscene_label.text = "A new strength awakens within you.\n\nGrowth multiplier: +%.3f\nNew multiplier: x%.2f\n\nYour journey begins again." % [gain, new_mult]
+	)
+	tween.tween_interval(3.0)
+
+	# Phase 4: Fade back (1s)
+	tween.tween_property(_cutscene_overlay, "color", Color(0, 0, 0, 0), 1.0)
+	tween.tween_callback(func():
+		_cutscene_overlay.visible = false
+		_cutscene_label.text = ""
+		_switch_to(ViewMode.OVERWORLD)
+	)
 
 
 # ===========================================================================
@@ -608,6 +699,8 @@ func _close_all_popups() -> void:
 		_pl_shop_popup.visible = false
 	if _meditation_popup:
 		_meditation_popup.visible = false
+	if _cutscene_overlay:
+		_cutscene_overlay.visible = false
 
 
 func _toggle_settings() -> void:
