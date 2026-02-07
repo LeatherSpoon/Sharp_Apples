@@ -182,12 +182,18 @@ func _tick_managers(elapsed_seconds: float) -> void:
 
 func perform_meditation() -> Dictionary:
 	var pl_at_meditation := currencies.power_level.current
-	# Time bonus: scales 0 -> 2x over 30 minutes of waiting
-	var time_bonus := clampf(time_since_meditation / 1800.0, 0.0, 2.0)
+	# Time factor: exponential curve that punishes short sessions heavily.
+	# Under 30 min the reward is near-zero; AT 30 min it hits ~63%;
+	# beyond 30 min it keeps growing toward the cap, rewarding patience.
+	# Formula: 1 - e^(-t/1800)  →  at 5 min ≈ 15%, 15 min ≈ 39%, 30 min ≈ 63%, 60 min ≈ 86%
+	var time_factor := 1.0 - exp(-time_since_meditation / 1800.0)
+	# Bonus ramps further: square the factor so short sessions are truly weak
+	# 5 min ≈ 2%, 15 min ≈ 15%, 30 min ≈ 40%, 60 min ≈ 74%, 120 min ≈ 98%
+	var time_bonus := time_factor * time_factor * 2.0
 	# PL bonus: logarithmic based on how high PL got
 	var pl_bonus := log(maxf(pl_at_meditation, 1.0)) / log(10.0)
-	# Multiplier gain compounds
-	var multiplier_gain := (1.0 + pl_bonus) * (1.0 + time_bonus) * 0.1
+	# Multiplier gain compounds — long patient sessions yield big rewards
+	var multiplier_gain := (1.0 + pl_bonus) * time_bonus * 0.15
 
 	meditation_multiplier += multiplier_gain
 	meditation_count += 1

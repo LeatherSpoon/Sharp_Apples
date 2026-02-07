@@ -314,9 +314,9 @@ func _refresh_opponent_list() -> void:
 
 	for i in OPPONENT_TIERS.size():
 		var opp_data: Dictionary = OPPONENT_TIERS[i]
-		var opp_hp := (30.0 + 20.0 * tier) * opp_data["hp_mult"]
-		var opp_dmg := (3.0 + 2.0 * tier) * opp_data["damage_mult"]
-		var opp_reward_gold := 10.0 * tier * opp_data["reward_mult"]
+		var opp_hp: float = (30.0 + 20.0 * tier) * float(opp_data["hp_mult"])
+		var opp_dmg: float = (3.0 + 2.0 * tier) * float(opp_data["damage_mult"])
+		var opp_reward_gold: float = 10.0 * tier * float(opp_data["reward_mult"])
 
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 4)
@@ -359,13 +359,13 @@ func _start_encounter(tier_idx: int) -> void:
 	var opp := Encounter.OpponentDefinition.new()
 	opp.id = "env_%s_%s" % [env["id"], opp_data["name"].to_lower()]
 	opp.opponent_name = "%s %s" % [env["name"], opp_data["name"]]
-	opp.base_power = 10.0 * env_tier * opp_data["power_mult"]
-	opp.base_hp = (30.0 + 20.0 * env_tier) * opp_data["hp_mult"]
-	opp.base_damage = (3.0 + 2.0 * env_tier) * opp_data["damage_mult"]
+	opp.base_power = 10.0 * env_tier * float(opp_data["power_mult"])
+	opp.base_hp = (30.0 + 20.0 * env_tier) * float(opp_data["hp_mult"])
+	opp.base_damage = (3.0 + 2.0 * env_tier) * float(opp_data["damage_mult"])
 	opp.attack_speed = 1.0
-	opp.gold_reward = 10.0 * env_tier * opp_data["reward_mult"]
-	opp.pl_reward = 5.0 * env_tier * opp_data["reward_mult"]
-	opp.mastery_xp_reward = 3.0 * env_tier * opp_data["reward_mult"]
+	opp.gold_reward = 10.0 * env_tier * float(opp_data["reward_mult"])
+	opp.pl_reward = 5.0 * env_tier * float(opp_data["reward_mult"])
+	opp.mastery_xp_reward = 3.0 * env_tier * float(opp_data["reward_mult"])
 	opp.environment_id = env["id"]
 	opp.is_boss = (tier_idx >= 4)
 
@@ -547,21 +547,30 @@ func _refresh_meditation_info() -> void:
 	var pl := GameState.currencies.power_level.current
 	var time_sec := GameState.time_since_meditation
 	var time_min := time_sec / 60.0
-	var time_bonus := clampf(time_sec / 1800.0, 0.0, 2.0)
+	# Mirror the formula from GameState.perform_meditation()
+	var time_factor := 1.0 - exp(-time_sec / 1800.0)
+	var time_bonus := time_factor * time_factor * 2.0
 	var pl_bonus := log(maxf(pl, 1.0)) / log(10.0)
-	var multiplier_gain := (1.0 + pl_bonus) * (1.0 + time_bonus) * 0.1
+	var multiplier_gain := (1.0 + pl_bonus) * time_bonus * 0.15
+	var time_pct := time_factor * time_factor * 100.0
 
 	var text := ""
-	text += "Meditation resets your Power Level to 1 but makes it grow FASTER.\n\n"
+	text += "Meditation resets your Power Level to 1 but makes it grow FASTER.\n"
+	text += "Longer sessions = MUCH bigger rewards.\n\n"
 	text += "Current PL: %d\n" % int(pl)
-	text += "Time since last meditation: %.0f min\n" % time_min
+	text += "Session time: %.0f min\n" % time_min
+	text += "Time strength: %.0f%%\n" % time_pct
 	text += "Current multiplier: x%.2f\n" % GameState.meditation_multiplier
-	text += "Multiplier gain if you meditate now: +%.3f\n" % multiplier_gain
+	text += "Multiplier gain now: +%.3f\n" % multiplier_gain
 	text += "Total meditations: %d\n\n" % GameState.meditation_count
-	if time_min < 30:
-		text += "Waiting longer increases the bonus! (30+ min = max bonus)\n"
+	if time_min < 10:
+		text += "Too early! Rewards are almost nothing. Keep training.\n"
+	elif time_min < 30:
+		text += "Rewards are growing... 30+ min for a strong bonus.\n"
+	elif time_min < 60:
+		text += "Good session! Reward is solid.\n"
 	else:
-		text += "You've waited 30+ minutes — maximum time bonus active!\n"
+		text += "Excellent patience! Near-maximum time bonus.\n"
 	text += "\nKEPT: Attack, Defense, Skills, Steps, Gold, Mastery\n"
 	text += "RESET: Power Level, Bosses, Environment"
 

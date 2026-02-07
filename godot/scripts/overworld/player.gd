@@ -95,7 +95,7 @@ func _update_camera_lead(input_dir: Vector2, delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		var world_pos := get_canvas_transform().affine_inverse() * event.position
+		var world_pos: Vector2 = get_canvas_transform().affine_inverse() * event.position
 		if event.pressed:
 			_mouse_held = true
 			_mouse_world_pos = world_pos

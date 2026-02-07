@@ -145,7 +145,7 @@ func _on_attack_pressed() -> void:
 	var cross_bonus := Combat.cross_theme_mastery_bonus(gs.mastery, _encounter.player_theme)
 
 	var eff_atk := gs.effective_attack()
-	var damage := (theme_def["base_damage"] + eff_atk) * (1.0 + var_scaling) * (1.0 + cross_bonus)
+	var damage: float = (float(theme_def["base_damage"]) + eff_atk) * (1.0 + var_scaling) * (1.0 + cross_bonus)
 
 	# Crit check
 	var luck := gs.variables.get_value(Variables.Kind.LUCK)
