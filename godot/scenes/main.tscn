@@ -1,10 +1,11 @@
-[gd_scene load_steps=9 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=10 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scripts/ui/main_ui.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/overworld/player.gd" id="2_player"]
 [ext_resource type="Script" path="res://scripts/combat/combat_view.gd" id="3_combat"]
 [ext_resource type="Script" path="res://scripts/ui/training_panel.gd" id="4_training"]
 [ext_resource type="Script" path="res://scripts/overworld/virtual_joystick.gd" id="5_joystick"]
+[ext_resource type="Script" path="res://scripts/overworld/world_objects.gd" id="6_world"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(14, 14)
@@ -42,6 +43,7 @@ corner_radius_bottom_left = 12
 script = ExtResource("1_main")
 
 [node name="World" type="Node2D" parent="."]
+script = ExtResource("6_world")
 
 [node name="Ground" type="ColorRect" parent="World"]
 offset_left = -2000.0
@@ -602,6 +604,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Managers"
 
+[node name="PLShopBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Power Level Shop"
+
 [node name="PedometerBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -610,7 +617,7 @@ text = "Step Shop"
 [node name="MasterResetBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Challenge Master (Reset)"
+text = "Meditate (Rebirth)"
 
 [node name="CloseMenuBtn" type="Button" parent="UILayer/UI/MenuPopup/MenuVBox"]
 unique_name_in_owner = true

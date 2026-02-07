@@ -2,7 +2,7 @@ extends Node
 ## GameState — central autoload singleton.
 ##
 ## Single source of truth for all player state. Runs the idle tick,
-## handles master resets, and provides convenience accessors.
+## handles meditation (rebirth), and provides convenience accessors.
 ##
 ## Registered as autoload "GameState" in project.godot.
 
@@ -36,6 +36,33 @@ var total_victories: int = 0
 const BASE_EXP_REQUIRED: float = 50.0
 const EXP_SCALING: float = 1.2
 
+# ---- Combat Skills (Attack / Defense) ----
+var attack_skill: float = 1.0
+var defense_skill: float = 1.0
+
+# ---- Resource Tracking ----
+var trees_destroyed: int = 0
+var boulders_destroyed: int = 0
+const RESOURCE_BONUS_THRESHOLD: int = 1  # testing: 1, release: raise significantly
+
+# ---- Meditation (Rebirth) System ----
+var meditation_count: int = 0
+var meditation_multiplier: float = 1.0  # multiplier on PL earn rate
+var time_since_meditation: float = 0.0  # seconds since last meditation/start
+
+# ---- Step Allocation ----
+enum StepAllocation { STEPS, ATTACK, DEFENSE }
+var step_allocation: int = StepAllocation.STEPS
+
+# ---- Opponent Selection ----
+var default_opponent_tier: int = -1  # -1 = show selection popup each time
+
+# ---- PL Shop Permanents ----
+var pl_rate_bonus: float = 0.0     # bonus to PL earn rate from PL shop
+var perm_attack_bonus: float = 0.0
+var perm_defense_bonus: float = 0.0
+var perm_hp_bonus: float = 0.0
+
 # ---- Signals ----
 
 signal power_level_changed(effective_pl: float)
@@ -44,6 +71,8 @@ signal variable_trained(kind: int, new_value: float)
 signal environment_changed(env_name: String)
 signal master_reset_performed(current_pl_lost: float)
 signal player_leveled_up(new_level: int, stat_points_available: int)
+signal resource_destroyed(type: String, total: int)
+signal meditation_completed(result: Dictionary)
 
 
 # ---- EXP helpers ----
@@ -73,6 +102,55 @@ func spend_stat_point(kind: int) -> bool:
 	return true
 
 
+# ---- Effective Combat Stats ----
+
+func effective_attack() -> float:
+	var base := attack_skill + perm_attack_bonus
+	var str_val := variables.get_value(Variables.Kind.STRENGTH)
+	return (base + str_val * 0.1) * currencies.effective_power_level()
+
+
+func effective_defense() -> float:
+	var base := defense_skill + perm_defense_bonus
+	var end_val := variables.get_value(Variables.Kind.ENDURANCE)
+	return (base + end_val * 0.1) * currencies.effective_power_level()
+
+
+func effective_max_hp() -> float:
+	var base := Variables.max_hp(variables.get_value(Variables.Kind.ENDURANCE))
+	return base + perm_hp_bonus
+
+
+# ---- Resource Destruction ----
+
+func on_resource_destroyed(type: String) -> void:
+	var str_gain := 0.1
+	if type == "tree":
+		trees_destroyed += 1
+		variables.train(Variables.Kind.STRENGTH, str_gain)
+		if trees_destroyed % RESOURCE_BONUS_THRESHOLD == 0:
+			attack_skill += 0.5
+		resource_destroyed.emit("tree", trees_destroyed)
+	elif type == "boulder":
+		boulders_destroyed += 1
+		variables.train(Variables.Kind.STRENGTH, str_gain)
+		if boulders_destroyed % RESOURCE_BONUS_THRESHOLD == 0:
+			defense_skill += 0.5
+		resource_destroyed.emit("boulder", boulders_destroyed)
+
+
+# ---- Step Allocation ----
+
+func allocate_step() -> void:
+	match step_allocation:
+		StepAllocation.STEPS:
+			currencies.pedometer.add_steps(1.0)
+		StepAllocation.ATTACK:
+			attack_skill += 0.01
+		StepAllocation.DEFENSE:
+			defense_skill += 0.01
+
+
 # ---- Tick ----
 
 func _process(delta: float) -> void:
@@ -81,8 +159,10 @@ func _process(delta: float) -> void:
 
 func tick(elapsed_seconds: float) -> void:
 	total_play_time += elapsed_seconds
-	# Passive Power Level: +1 per second
-	currencies.power_level.earn(elapsed_seconds)
+	time_since_meditation += elapsed_seconds
+	# Passive PL: base rate * meditation multiplier * PL shop bonus
+	var pl_rate := meditation_multiplier * (1.0 + pl_rate_bonus)
+	currencies.power_level.earn(elapsed_seconds * pl_rate)
 	_tick_managers(elapsed_seconds)
 
 
@@ -98,12 +178,49 @@ func _tick_managers(elapsed_seconds: float) -> void:
 		variables.train(variable_kind, amount)
 
 
+# ---- Meditation (Rebirth) ----
+
+func perform_meditation() -> Dictionary:
+	var pl_at_meditation := currencies.power_level.current
+	# Time bonus: scales 0 -> 2x over 30 minutes of waiting
+	var time_bonus := clampf(time_since_meditation / 1800.0, 0.0, 2.0)
+	# PL bonus: logarithmic based on how high PL got
+	var pl_bonus := log(maxf(pl_at_meditation, 1.0)) / log(10.0)
+	# Multiplier gain compounds
+	var multiplier_gain := (1.0 + pl_bonus) * (1.0 + time_bonus) * 0.1
+
+	meditation_multiplier += multiplier_gain
+	meditation_count += 1
+	time_since_meditation = 0.0
+
+	# Reset PL to 1
+	currencies.power_level.current = 1.0
+	currencies.power_level.times_reset += 1
+
+	# Reset environment/bosses but keep skills, gold, variables, mastery
+	environment = GameEnvironment.ProgressionState.new()
+	total_victories = 0
+
+	var result := {
+		"multiplier_gained": multiplier_gain,
+		"new_multiplier": meditation_multiplier,
+		"meditation_count": meditation_count,
+		"pl_at_meditation": pl_at_meditation,
+		"time_bonus": time_bonus,
+	}
+	meditation_completed.emit(result)
+	master_reset_performed.emit(pl_at_meditation)
+	return result
+
+
+# Legacy wrapper
+func perform_master_reset() -> Dictionary:
+	return perform_meditation()
+
+
 # ---- Movement ----
-# Pedometer steps are now added directly by the player script
-# based on actual distance traveled (1 step per 16px tile).
 
 func tick_movement(_elapsed_seconds: float) -> float:
-	# Kept for API compatibility; player now handles step counting directly.
 	return 0.0
 
 
@@ -125,30 +242,6 @@ func spend_pedometer_for_upgrade() -> Dictionary:
 		"steps_spent": result["steps_spent"],
 		"speed_bonus_applied": speed_applied,
 		"power_level_bonus_applied": pl_applied,
-	}
-
-
-# ---- Master reset (rebirth) ----
-
-func perform_master_reset() -> Dictionary:
-	var current_pl_lost := currencies.power_level.reset()
-	var new_env := environment.advance()
-	var new_name: String = ""
-	var new_theme: int = -1
-
-	if new_env.size() > 0:
-		active_combat_theme = new_env["combat_theme"]
-		new_name = new_env["name"]
-		new_theme = new_env["combat_theme"]
-
-	master_reset_performed.emit(current_pl_lost)
-	if new_name != "":
-		environment_changed.emit(new_name)
-
-	return {
-		"current_pl_lost": current_pl_lost,
-		"new_environment_name": new_name,
-		"new_theme": new_theme,
 	}
 
 

@@ -2,6 +2,7 @@ extends Control
 ## Combat view — Pokemon/NGU Idle style framing.
 ## Real-time combat: player must wait for cooldown to attack (no auto-attack).
 ## Opponent auto-attacks on a timer.
+## Player attack/defense are multiplied by Power Level.
 ## After combat ends, click/tap anywhere to dismiss.
 
 @onready var opponent_name_label: Label = %OpponentNameLabel
@@ -37,10 +38,9 @@ signal combat_fled()
 
 func start_combat(opponent: Encounter.OpponentDefinition) -> void:
 	_opponent_def = opponent
-	var gs := GameState
-	var max_hp := Variables.max_hp(gs.variables.get_value(Variables.Kind.ENDURANCE))
+	var max_hp := GameState.effective_max_hp()
 
-	_encounter = Encounter.State.new(opponent, max_hp, max_hp, gs.active_combat_theme)
+	_encounter = Encounter.State.new(opponent, max_hp, max_hp, GameState.active_combat_theme)
 	_encounter.begin_combat()
 
 	_player_cooldown = PLAYER_COOLDOWN_TIME
@@ -102,8 +102,13 @@ func _opponent_auto_attack() -> void:
 	if _encounter == null or _encounter.phase != Encounter.Phase.ACTIVE:
 		return
 
-	var opp_damage := _opponent_def.base_damage
-	_encounter.damage_player(opp_damage)
+	# Opponent damage reduced by player's effective defense
+	var raw_damage := _opponent_def.base_damage
+	var eff_def := GameState.effective_defense()
+	# Defense formula: damage * 100/(100+defense)
+	var reduction := 100.0 / (100.0 + eff_def)
+	var final_damage := maxf(raw_damage * reduction, 1.0)
+	_encounter.damage_player(final_damage)
 
 	var phase := _encounter.check_resolution()
 	_update_display()
@@ -133,18 +138,14 @@ func _on_attack_pressed() -> void:
 	if _player_cooldown > 0:
 		return
 
-	# Player attacks
+	# Player damage incorporates effective_attack (attack_skill * PL)
 	var gs := GameState
 	var theme_def: Dictionary = Combat.THEME_DEFINITIONS[_encounter.player_theme]
 	var var_scaling := gs.variables.variable_scaling(theme_def["theme_key"])
 	var cross_bonus := Combat.cross_theme_mastery_bonus(gs.mastery, _encounter.player_theme)
-	var damage := Combat.calculate_damage(
-		theme_def["base_damage"],
-		gs.currencies.effective_power_level(),
-		var_scaling,
-		cross_bonus,
-		1.0,
-	)
+
+	var eff_atk := gs.effective_attack()
+	var damage := (theme_def["base_damage"] + eff_atk) * (1.0 + var_scaling) * (1.0 + cross_bonus)
 
 	# Crit check
 	var luck := gs.variables.get_value(Variables.Kind.LUCK)
