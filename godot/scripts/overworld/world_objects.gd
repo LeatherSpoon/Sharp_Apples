@@ -1,6 +1,9 @@
 extends Node2D
 ## Spawns destructible trees, boulders, and the Master NPC in the overworld.
 ## Resources respawn after a cooldown so the player always has things to punch.
+## Supports world travel — call apply_world() to switch visuals and resources.
+
+signal world_changed(env_id: String)
 
 # Exclusion zones — no resources spawn inside these (with 20px margin)
 const EXCLUSION_ZONES: Array[Rect2] = [
@@ -10,27 +13,19 @@ const EXCLUSION_ZONES: Array[Rect2] = [
 	Rect2(-520, -50, 1040, 100),   # Path2 horizontal: (-500,-30) to (500,30) + margin
 ]
 
-const TREE_POSITIONS: Array[Vector2] = [
-	Vector2(-400, -100), Vector2(-350, 80), Vector2(-180, 180),
-	Vector2(100, 150), Vector2(420, -200), Vector2(420, 200),
-	Vector2(-120, 320), Vector2(380, 330), Vector2(-450, 250),
-	Vector2(150, -400), Vector2(-400, -300), Vector2(450, -80),
-]
+const RESPAWN_TIME: float = 10.0
+const NUM_TREES: int = 12
+const NUM_BOULDERS: int = 8
+const SPAWN_RANGE: float = 450.0
 
-const BOULDER_POSITIONS: Array[Vector2] = [
-	Vector2(-400, 200), Vector2(200, 280), Vector2(-430, -200),
-	Vector2(400, -320), Vector2(100, 420), Vector2(-200, 160),
-	Vector2(400, 100), Vector2(-380, 350),
-]
-
-const RESPAWN_TIME: float = 10.0  # seconds until resources reappear
 var _respawn_queue: Array[Dictionary] = []
+var _spawned_resources: Array[Node] = []
+var _master_npc: Node = null
+var _current_env_id: String = ""
 
 
 func _ready() -> void:
-	_spawn_all_trees()
-	_spawn_all_boulders()
-	_spawn_master_npc()
+	apply_world(GameState.environment.current_environment())
 
 
 func _process(delta: float) -> void:
@@ -44,7 +39,95 @@ func _process(delta: float) -> void:
 		i -= 1
 
 
-# ---- Tree spawning ----
+# ===========================================================================
+#  WORLD SWITCHING
+# ===========================================================================
+
+func apply_world(env: Dictionary) -> void:
+	var env_id: String = env["id"]
+	_current_env_id = env_id
+
+	# Update ground and path colors
+	var ground: ColorRect = get_node_or_null("Ground")
+	if ground:
+		ground.color = env.get("ground_color", Color(0.18, 0.55, 0.22))
+
+	var path1: ColorRect = get_node_or_null("Path1")
+	var path2: ColorRect = get_node_or_null("Path2")
+	var path_col: Color = env.get("path_color", Color(0.55, 0.4, 0.25))
+	if path1:
+		path1.color = path_col
+	if path2:
+		path2.color = path_col
+
+	# Toggle landmark visibility
+	var pond: ColorRect = get_node_or_null("Pond")
+	if pond:
+		pond.visible = env.get("has_pond", false)
+
+	var dojo: ColorRect = get_node_or_null("Dojo")
+	if dojo:
+		dojo.visible = env.get("has_dojo", false)
+
+	# Clear existing resources and respawn queue
+	_clear_resources()
+	_respawn_queue.clear()
+
+	# Generate resources from seeded positions
+	var positions := _generate_positions(env_id, NUM_TREES + NUM_BOULDERS)
+	for idx in NUM_TREES:
+		if idx < positions.size():
+			_create_resource("tree", positions[idx])
+	for idx in range(NUM_TREES, NUM_TREES + NUM_BOULDERS):
+		if idx < positions.size():
+			_create_resource("boulder", positions[idx])
+
+	# Master NPC only in worlds with a dojo
+	if _master_npc:
+		_master_npc.queue_free()
+		_master_npc = null
+	if env.get("has_dojo", false):
+		_spawn_master_npc()
+
+	# Move player to origin
+	var player: Node2D = get_node_or_null("Player")
+	if player:
+		player.position = Vector2.ZERO
+
+	world_changed.emit(env_id)
+
+
+func _clear_resources() -> void:
+	for node in _spawned_resources:
+		if is_instance_valid(node):
+			node.queue_free()
+	_spawned_resources.clear()
+
+
+# Generate deterministic positions from a seed string
+func _generate_positions(seed_str: String, count: int) -> Array[Vector2]:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(seed_str)
+	var positions: Array[Vector2] = []
+	var attempts := 0
+	while positions.size() < count and attempts < count * 10:
+		attempts += 1
+		var x := rng.randf_range(-SPAWN_RANGE, SPAWN_RANGE)
+		var y := rng.randf_range(-SPAWN_RANGE, SPAWN_RANGE)
+		var pos := Vector2(x, y)
+		if not _is_valid_spawn_pos(pos):
+			continue
+		# Check minimum distance from other positions
+		var too_close := false
+		for other in positions:
+			if pos.distance_to(other) < 40.0:
+				too_close = true
+				break
+		if too_close:
+			continue
+		positions.append(pos)
+	return positions
+
 
 func _is_valid_spawn_pos(pos: Vector2) -> bool:
 	for zone in EXCLUSION_ZONES:
@@ -53,17 +136,9 @@ func _is_valid_spawn_pos(pos: Vector2) -> bool:
 	return true
 
 
-func _spawn_all_trees() -> void:
-	for pos in TREE_POSITIONS:
-		if _is_valid_spawn_pos(pos):
-			_create_resource("tree", pos)
-
-
-func _spawn_all_boulders() -> void:
-	for pos in BOULDER_POSITIONS:
-		if _is_valid_spawn_pos(pos):
-			_create_resource("boulder", pos)
-
+# ===========================================================================
+#  RESOURCE CREATION
+# ===========================================================================
 
 func _create_resource(type: String, pos: Vector2) -> void:
 	var node := Area2D.new()
@@ -80,14 +155,12 @@ func _create_resource(type: String, pos: Vector2) -> void:
 		shape.shape = rect
 		node.add_child(shape)
 
-		# Canopy
 		var canopy := ColorRect.new()
 		canopy.size = Vector2(24, 20)
 		canopy.position = Vector2(-12, -24)
 		canopy.color = Color(0.08, 0.45, 0.12)
 		node.add_child(canopy)
 
-		# Trunk
 		var trunk := ColorRect.new()
 		trunk.size = Vector2(6, 14)
 		trunk.position = Vector2(-3, -4)
@@ -98,14 +171,12 @@ func _create_resource(type: String, pos: Vector2) -> void:
 		shape.shape = rect
 		node.add_child(shape)
 
-		# Boulder body
 		var body := ColorRect.new()
 		body.size = Vector2(26, 18)
 		body.position = Vector2(-13, -9)
 		body.color = Color(0.5, 0.47, 0.42)
 		node.add_child(body)
 
-		# Highlight
 		var highlight := ColorRect.new()
 		highlight.size = Vector2(12, 6)
 		highlight.position = Vector2(-6, -7)
@@ -114,32 +185,30 @@ func _create_resource(type: String, pos: Vector2) -> void:
 
 	node.input_event.connect(_on_resource_clicked.bind(node, type, pos))
 	add_child(node)
+	_spawned_resources.append(node)
 
 
 func _on_resource_clicked(_viewport: Node, event: InputEvent, _shape_idx: int, node: Area2D, type: String, pos: Vector2) -> void:
 	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
 		return
 
-	# Check player is close enough to punch
 	var player: Node2D = get_node_or_null("Player")
 	if player == null:
 		return
 	if player.global_position.distance_to(node.global_position) > 64.0:
 		return
 
-	# Destroy it
 	GameState.on_resource_destroyed(type)
 	node.queue_free()
+	_spawned_resources.erase(node)
 	get_viewport().set_input_as_handled()
 
-	# Queue respawn
 	_respawn_queue.append({
 		"type": type,
 		"pos": pos,
 		"timer": RESPAWN_TIME,
 	})
 
-	# Floating feedback text
 	_spawn_feedback(pos, "+STR" if type == "tree" else "+DEF")
 
 
@@ -147,7 +216,7 @@ func _spawn_feedback(pos: Vector2, text: String) -> void:
 	var lbl := Label.new()
 	lbl.text = text
 	lbl.position = pos + Vector2(-16, -40)
-	lbl.add_theme_font_size_override("font_size", 14)
+	lbl.add_theme_font_size_override("font_size", 21)
 	lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 0.3))
 	add_child(lbl)
 
@@ -157,43 +226,41 @@ func _spawn_feedback(pos: Vector2, text: String) -> void:
 	tween.tween_callback(lbl.queue_free)
 
 
-# ---- Master NPC ----
+# ===========================================================================
+#  MASTER NPC
+# ===========================================================================
 
 func _spawn_master_npc() -> void:
-	# Dojo is at (-300, -350) to (-150, -200). Front is around y = -185
 	var npc := CharacterBody2D.new()
 	npc.position = Vector2(-225, -180)
 
 	var npc_script: GDScript = load("res://scripts/overworld/npc_master.gd")
 	npc.set_script(npc_script)
 
-	# Body (golden/orange)
 	var body := ColorRect.new()
 	body.size = Vector2(14, 14)
 	body.position = Vector2(-7, -7)
 	body.color = Color(0.85, 0.65, 0.1)
 	npc.add_child(body)
 
-	# Belt (darker)
 	var belt := ColorRect.new()
 	belt.size = Vector2(14, 3)
 	belt.position = Vector2(-7, 2)
 	belt.color = Color(0.15, 0.15, 0.15)
 	npc.add_child(belt)
 
-	# Collision
 	var col := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
 	rect.size = Vector2(14, 14)
 	col.shape = rect
 	npc.add_child(col)
 
-	# Name label
 	var name_label := Label.new()
 	name_label.text = "Master"
 	name_label.position = Vector2(-20, -24)
-	name_label.add_theme_font_size_override("font_size", 9)
+	name_label.add_theme_font_size_override("font_size", 14)
 	name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
 	npc.add_child(name_label)
 
 	add_child(npc)
+	_master_npc = npc

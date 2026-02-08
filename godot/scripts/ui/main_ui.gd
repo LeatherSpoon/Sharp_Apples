@@ -50,6 +50,7 @@ var _displayed_pl: float = 1.0
 @onready var stats_btn: Button = %StatsBtn
 @onready var mastery_btn: Button = %MasteryBtn
 @onready var managers_btn: Button = %ManagersBtn
+@onready var travel_menu_btn: Button = %TravelBtn
 @onready var gold_shop_menu_btn: Button = %GoldShopBtn
 @onready var pl_shop_menu_btn: Button = %PLShopBtn
 @onready var pedometer_btn: Button = %PedometerBtn
@@ -89,6 +90,8 @@ var _meditation_info_label: Label = null
 var _meditate_confirm_btn: Button = null
 var _cutscene_overlay: ColorRect = null
 var _cutscene_label: Label = null
+var _travel_popup: PanelContainer = null
+var _travel_list: VBoxContainer = null
 var _gold_shop_popup: PanelContainer = null
 var _gold_shop_list: VBoxContainer = null
 var _gold_shop_balance_label: Label = null
@@ -144,6 +147,7 @@ func _ready() -> void:
 	stats_btn.pressed.connect(_open_stats)
 	mastery_btn.pressed.connect(_open_mastery)
 	managers_btn.pressed.connect(_on_managers_pressed)
+	travel_menu_btn.pressed.connect(_open_travel)
 	gold_shop_menu_btn.pressed.connect(_open_gold_shop)
 	pl_shop_menu_btn.pressed.connect(_open_pl_shop)
 	pedometer_btn.pressed.connect(_open_steps_shop)
@@ -165,6 +169,7 @@ func _ready() -> void:
 
 	# Create dynamic popups
 	_create_opponent_popup()
+	_create_travel_popup()
 	_create_gold_shop_popup()
 	_create_pl_shop_popup()
 	_create_meditation_popup()
@@ -276,12 +281,12 @@ func _create_opponent_popup() -> void:
 	var title := Label.new()
 	title.text = "SELECT OPPONENT"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_font_size_override("font_size", 30)
 	vbox.add_child(title)
 
 	_combat_stats_label = Label.new()
 	_combat_stats_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_combat_stats_label.add_theme_font_size_override("font_size", 14)
+	_combat_stats_label.add_theme_font_size_override("font_size", 21)
 	vbox.add_child(_combat_stats_label)
 
 	var sep := HSeparator.new()
@@ -333,7 +338,7 @@ func _refresh_opponent_list() -> void:
 
 		var info := Label.new()
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.add_theme_font_size_override("font_size", 14)
+		info.add_theme_font_size_override("font_size", 21)
 		var default_marker := " [DEFAULT]" if GameState.default_opponent_tier == i else ""
 		info.text = "%s%s\nHP: %.0f  DMG: %.0f  Gold: %.0f" % [
 			opp_data["name"], default_marker, opp_hp, opp_dmg, opp_reward_gold
@@ -384,6 +389,137 @@ func _start_encounter(tier_idx: int) -> void:
 
 
 # ===========================================================================
+#  WORLD TRAVEL
+# ===========================================================================
+
+func _create_travel_popup() -> void:
+	var ui_root: Control = $UILayer/UI
+
+	_travel_popup = PanelContainer.new()
+	_travel_popup.name = "TravelPopup"
+	_travel_popup.visible = false
+	_travel_popup.layout_mode = 1
+	_travel_popup.anchors_preset = Control.PRESET_FULL_RECT
+	_travel_popup.anchor_left = 0.05
+	_travel_popup.anchor_top = 0.06
+	_travel_popup.anchor_right = 0.95
+	_travel_popup.anchor_bottom = 0.88
+	_travel_popup.add_theme_stylebox_override("panel", _make_panel_style())
+	ui_root.add_child(_travel_popup)
+
+	var vbox := VBoxContainer.new()
+	vbox.layout_mode = 2
+	vbox.add_theme_constant_override("separation", 6)
+	_travel_popup.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "WORLD TRAVEL"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 30)
+	vbox.add_child(title)
+
+	var desc := Label.new()
+	desc.text = "Travel to a different world. Each has unique challenges."
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.add_theme_font_size_override("font_size", 21)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(desc)
+
+	var sep := HSeparator.new()
+	vbox.add_child(sep)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+
+	_travel_list = VBoxContainer.new()
+	_travel_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_travel_list.add_theme_constant_override("separation", 8)
+	scroll.add_child(_travel_list)
+
+	var close_btn := Button.new()
+	close_btn.text = "Cancel"
+	close_btn.custom_minimum_size = Vector2(0, 40)
+	close_btn.pressed.connect(func(): _travel_popup.visible = false)
+	vbox.add_child(close_btn)
+
+
+func _open_travel() -> void:
+	menu_popup.visible = false
+	_refresh_travel_list()
+	_travel_popup.visible = true
+
+
+func _refresh_travel_list() -> void:
+	for child in _travel_list.get_children():
+		child.queue_free()
+
+	var current_idx := GameState.environment.current_index
+
+	for i in GameEnvironment.ENVIRONMENTS.size():
+		var env: Dictionary = GameEnvironment.ENVIRONMENTS[i]
+		var unlocked := GameState.environment.is_unlocked(i)
+		var is_current := (i == current_idx)
+
+		var row := VBoxContainer.new()
+		row.add_theme_constant_override("separation", 2)
+
+		var hbox := HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 8)
+
+		var info := Label.new()
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info.add_theme_font_size_override("font_size", 21)
+		if unlocked:
+			var marker := " [HERE]" if is_current else ""
+			info.text = "%s (Tier %d)%s" % [env["name"], env["tier"], marker]
+		else:
+			info.text = "??? (Tier %d) — Locked" % env["tier"]
+			info.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		hbox.add_child(info)
+
+		var btn := Button.new()
+		if is_current:
+			btn.text = "Here"
+			btn.disabled = true
+		elif unlocked:
+			btn.text = "Travel"
+			btn.pressed.connect(_do_travel.bind(i))
+		else:
+			btn.text = "Locked"
+			btn.disabled = true
+		btn.custom_minimum_size = Vector2(80, 0)
+		hbox.add_child(btn)
+
+		row.add_child(hbox)
+
+		# Description line
+		if unlocked:
+			var desc_lbl := Label.new()
+			desc_lbl.text = env["description"]
+			desc_lbl.add_theme_font_size_override("font_size", 18)
+			desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
+			desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			row.add_child(desc_lbl)
+
+		_travel_list.add_child(row)
+
+
+func _do_travel(env_index: int) -> void:
+	if not GameState.environment.travel_to(env_index):
+		return
+	_travel_popup.visible = false
+
+	var env := GameState.environment.current_environment()
+
+	# Update the world visuals
+	if world:
+		world.apply_world(env)
+
+	_switch_to(ViewMode.OVERWORLD)
+
+
+# ===========================================================================
 #  GOLD SHOP
 # ===========================================================================
 
@@ -424,19 +560,19 @@ func _create_gold_shop_popup() -> void:
 	var title := Label.new()
 	title.text = "GOLD SHOP"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_font_size_override("font_size", 30)
 	vbox.add_child(title)
 
 	var desc := Label.new()
 	desc.text = "Spend gold earned from combat on upgrades."
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.add_theme_font_size_override("font_size", 14)
+	desc.add_theme_font_size_override("font_size", 21)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(desc)
 
 	_gold_shop_balance_label = Label.new()
 	_gold_shop_balance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_gold_shop_balance_label.add_theme_font_size_override("font_size", 16)
+	_gold_shop_balance_label.add_theme_font_size_override("font_size", 24)
 	vbox.add_child(_gold_shop_balance_label)
 
 	var sep := HSeparator.new()
@@ -480,7 +616,7 @@ func _refresh_gold_shop() -> void:
 
 		var lbl := Label.new()
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		lbl.add_theme_font_size_override("font_size", 14)
+		lbl.add_theme_font_size_override("font_size", 21)
 		lbl.text = "%s — %s (%.0fg)" % [item["name"], item["desc"], cost]
 		if bought > 0:
 			lbl.text += " [x%d]" % bought
@@ -548,13 +684,13 @@ func _create_pl_shop_popup() -> void:
 	var title := Label.new()
 	title.text = "POWER LEVEL SHOP"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_font_size_override("font_size", 30)
 	vbox.add_child(title)
 
 	var desc := Label.new()
 	desc.text = "Spend current Power Level on permanent upgrades.\nThese persist through Meditation."
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.add_theme_font_size_override("font_size", 14)
+	desc.add_theme_font_size_override("font_size", 21)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(desc)
 
@@ -602,7 +738,7 @@ func _refresh_pl_shop() -> void:
 
 		var lbl := Label.new()
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		lbl.add_theme_font_size_override("font_size", 14)
+		lbl.add_theme_font_size_override("font_size", 21)
 		lbl.text = "%s — %s (%.0f PL)" % [item["name"], item["desc"], cost]
 		if bought > 0:
 			lbl.text += " [x%d]" % bought
@@ -666,13 +802,13 @@ func _create_meditation_popup() -> void:
 	var title := Label.new()
 	title.text = "PRESTIGE — MEDITATION"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_font_size_override("font_size", 30)
 	vbox.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "Sit on your mat and start anew — stronger than before."
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 14)
+	subtitle.add_theme_font_size_override("font_size", 21)
 	subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.9))
 	vbox.add_child(subtitle)
 
@@ -681,7 +817,7 @@ func _create_meditation_popup() -> void:
 
 	_meditation_info_label = Label.new()
 	_meditation_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_meditation_info_label.add_theme_font_size_override("font_size", 14)
+	_meditation_info_label.add_theme_font_size_override("font_size", 21)
 	_meditation_info_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_meditation_info_label)
 
@@ -717,7 +853,7 @@ func _create_meditation_popup() -> void:
 	_cutscene_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_cutscene_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_cutscene_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_cutscene_label.add_theme_font_size_override("font_size", 24)
+	_cutscene_label.add_theme_font_size_override("font_size", 36)
 	_cutscene_label.add_theme_color_override("font_color", Color(1, 1, 1))
 	_cutscene_label.custom_minimum_size = Vector2(300, 200)
 	_cutscene_label.text = ""
@@ -841,6 +977,8 @@ func _close_all_popups() -> void:
 	mastery_popup.visible = false
 	if _opponent_popup:
 		_opponent_popup.visible = false
+	if _travel_popup:
+		_travel_popup.visible = false
 	if _gold_shop_popup:
 		_gold_shop_popup.visible = false
 	if _pl_shop_popup:
@@ -1050,13 +1188,13 @@ func _build_steps_shop() -> void:
 	var alloc_title := Label.new()
 	alloc_title.text = "STEP ALLOCATION"
 	alloc_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	alloc_title.add_theme_font_size_override("font_size", 18)
+	alloc_title.add_theme_font_size_override("font_size", 27)
 	steps_shop_list.add_child(alloc_title)
 
 	var alloc_desc := Label.new()
 	alloc_desc.text = "Choose where your walking steps go:"
 	alloc_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	alloc_desc.add_theme_font_size_override("font_size", 14)
+	alloc_desc.add_theme_font_size_override("font_size", 21)
 	steps_shop_list.add_child(alloc_desc)
 
 	var alloc_row := HBoxContainer.new()
@@ -1095,7 +1233,7 @@ func _build_steps_shop() -> void:
 	_step_alloc_label = Label.new()
 	_step_alloc_label.name = "AllocInfo"
 	_step_alloc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_step_alloc_label.add_theme_font_size_override("font_size", 14)
+	_step_alloc_label.add_theme_font_size_override("font_size", 21)
 	steps_shop_list.add_child(_step_alloc_label)
 
 	var sep := HSeparator.new()
@@ -1104,7 +1242,7 @@ func _build_steps_shop() -> void:
 	var shop_title := Label.new()
 	shop_title.text = "STEP SHOP"
 	shop_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	shop_title.add_theme_font_size_override("font_size", 18)
+	shop_title.add_theme_font_size_override("font_size", 27)
 	steps_shop_list.add_child(shop_title)
 
 	# PL Shop shortcut
