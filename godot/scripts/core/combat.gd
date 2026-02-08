@@ -81,9 +81,10 @@ static func next_theme_in_cycle(current: int) -> int:
 	return THEME_ORDER[(idx + 1) % THEME_ORDER.size()]
 
 
-## XP required for a given mastery level: 100 * 1.15^level
+## XP required for a given mastery level: 500 * 1.25^level
+## Progression is slow — mastery is a long-term investment.
 static func mastery_xp_required(level: int) -> float:
-	return 100.0 * pow(1.15, level)
+	return 500.0 * pow(1.25, level)
 
 
 ## Cross-theme mastery bonus: average mastery of other themes * 0.02

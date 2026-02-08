@@ -65,7 +65,7 @@ const ENVIRONMENTS: Array[Dictionary] = [
 		"name": "Crystal Spire",
 		"tier": 5,
 		"combat_theme": Combat.CombatTheme.ENERGY,
-		"description": "A crystalline tower pulsing with raw energy, where ki techniques reign.",
+		"description": "A crystalline tower pulsing with raw energy, where power techniques reign.",
 		"ground_color": Color(0.22, 0.2, 0.35),
 		"path_color": Color(0.35, 0.3, 0.5),
 		"has_pond": true,

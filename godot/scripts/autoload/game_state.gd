@@ -24,6 +24,7 @@ var speed := Speed.State.new()
 var managers := Managers.State.new()
 var environment := GameEnvironment.ProgressionState.new()
 var equipment := Tools.EquipmentState.new()
+var energy := Augments.EnergyState.new()
 
 var total_play_time: float = 0.0
 
@@ -107,13 +108,15 @@ func spend_stat_point(kind: int) -> bool:
 func effective_attack() -> float:
 	var base := attack_skill + perm_attack_bonus
 	var str_val := variables.get_value(Variables.Kind.STRENGTH)
-	return (base + str_val * 0.1) * currencies.effective_power_level()
+	var aug_mult: float = Augments.total_augment_multiplier(energy)["attack"]
+	return (base + str_val * 0.1) * currencies.effective_power_level() * aug_mult
 
 
 func effective_defense() -> float:
 	var base := defense_skill + perm_defense_bonus
 	var end_val := variables.get_value(Variables.Kind.ENDURANCE)
-	return (base + end_val * 0.1) * currencies.effective_power_level()
+	var aug_mult: float = Augments.total_augment_multiplier(energy)["defense"]
+	return (base + end_val * 0.1) * currencies.effective_power_level() * aug_mult
 
 
 func effective_max_hp() -> float:
@@ -164,6 +167,7 @@ func tick(elapsed_seconds: float) -> void:
 	var pl_rate := meditation_multiplier * (1.0 + pl_rate_bonus)
 	currencies.power_level.earn(elapsed_seconds * pl_rate)
 	_tick_managers(elapsed_seconds)
+	_tick_energy(elapsed_seconds)
 
 
 func _tick_managers(elapsed_seconds: float) -> void:
@@ -176,6 +180,14 @@ func _tick_managers(elapsed_seconds: float) -> void:
 		var variable_kind: int = Variables.ACTIVITY_VARIABLE_MAP[activity]
 		var amount := gains_per_hour * elapsed_hours
 		variables.train(variable_kind, amount)
+
+
+# ---- Energy / Augments ----
+
+func _tick_energy(elapsed_seconds: float) -> void:
+	var results := Augments.tick(energy, elapsed_seconds, player_level)
+	attack_skill += results["attack_trained"]
+	defense_skill += results["defense_trained"]
 
 
 # ---- Meditation (Rebirth) ----

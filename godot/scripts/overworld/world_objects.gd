@@ -4,6 +4,8 @@ extends Node2D
 ## Supports world travel — call apply_world() to switch visuals and resources.
 
 signal world_changed(env_id: String)
+signal mine_entrance_clicked
+signal master_npc_clicked
 
 # Exclusion zones — no resources spawn inside these (with 20px margin)
 const EXCLUSION_ZONES: Array[Rect2] = [
@@ -11,6 +13,7 @@ const EXCLUSION_ZONES: Array[Rect2] = [
 	Rect2(130, -220, 240, 190),    # Pond: (150,-200) to (350,-50) + margin
 	Rect2(-70, -520, 140, 1040),   # Path1 vertical: (-50,-500) to (50,500) + margin
 	Rect2(-520, -50, 1040, 100),   # Path2 horizontal: (-500,-30) to (500,30) + margin
+	Rect2(-420, -310, 80, 70),     # Mine entrance: (-380,-275) + margin
 ]
 
 const RESPAWN_TIME: float = 10.0
@@ -21,6 +24,7 @@ const SPAWN_RANGE: float = 450.0
 var _respawn_queue: Array[Dictionary] = []
 var _spawned_resources: Array[Node] = []
 var _master_npc: Node = null
+var _mine_entrance: Node = null
 var _current_env_id: String = ""
 
 
@@ -88,6 +92,13 @@ func apply_world(env: Dictionary) -> void:
 		_master_npc = null
 	if env.get("has_dojo", false):
 		_spawn_master_npc()
+
+	# Mine entrance only in Forest Dojo (leads to Deep Mine)
+	if _mine_entrance:
+		_mine_entrance.queue_free()
+		_mine_entrance = null
+	if env_id == "forest_dojo":
+		_spawn_mine_entrance()
 
 	# Move player to origin
 	var player: Node2D = get_node_or_null("Player")
@@ -255,6 +266,17 @@ func _spawn_master_npc() -> void:
 	col.shape = rect
 	npc.add_child(col)
 
+	# Click detection area overlaid on NPC
+	var click_area := Area2D.new()
+	click_area.input_pickable = true
+	var click_shape := CollisionShape2D.new()
+	var click_rect := RectangleShape2D.new()
+	click_rect.size = Vector2(28, 28)
+	click_shape.shape = click_rect
+	click_area.add_child(click_shape)
+	click_area.input_event.connect(_on_master_clicked.bind(npc))
+	npc.add_child(click_area)
+
 	var name_label := Label.new()
 	name_label.text = "Master"
 	name_label.position = Vector2(-20, -24)
@@ -264,3 +286,77 @@ func _spawn_master_npc() -> void:
 
 	add_child(npc)
 	_master_npc = npc
+
+
+func _on_master_clicked(_viewport: Node, event: InputEvent, _shape_idx: int, npc: Node2D) -> void:
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	var player: Node2D = get_node_or_null("Player")
+	if player == null:
+		return
+	if player.global_position.distance_to(npc.global_position) > 80.0:
+		return
+	get_viewport().set_input_as_handled()
+	master_npc_clicked.emit()
+
+
+# ===========================================================================
+#  MINE ENTRANCE
+# ===========================================================================
+
+func _spawn_mine_entrance() -> void:
+	# Place west of dojo: dojo is at (-300,-350) to (-150,-200)
+	# Mine entrance at (-380, -275) — just to the left of the dojo
+	var entrance := Area2D.new()
+	entrance.position = Vector2(-380, -275)
+	entrance.input_pickable = true
+
+	# Dark cave-like rectangle
+	var bg := ColorRect.new()
+	bg.size = Vector2(40, 36)
+	bg.position = Vector2(-20, -18)
+	bg.color = Color(0.12, 0.1, 0.1)
+	entrance.add_child(bg)
+
+	# Arch/entrance highlight
+	var arch := ColorRect.new()
+	arch.size = Vector2(30, 8)
+	arch.position = Vector2(-15, -18)
+	arch.color = Color(0.3, 0.22, 0.15)
+	entrance.add_child(arch)
+
+	# Inner darkness
+	var inner := ColorRect.new()
+	inner.size = Vector2(24, 24)
+	inner.position = Vector2(-12, -10)
+	inner.color = Color(0.05, 0.04, 0.04)
+	entrance.add_child(inner)
+
+	var label := Label.new()
+	label.text = "Mine"
+	label.position = Vector2(-16, -36)
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
+	entrance.add_child(label)
+
+	var col := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = Vector2(40, 36)
+	col.shape = rect
+	entrance.add_child(col)
+
+	entrance.input_event.connect(_on_mine_entrance_clicked.bind(entrance))
+	add_child(entrance)
+	_mine_entrance = entrance
+
+
+func _on_mine_entrance_clicked(_viewport: Node, event: InputEvent, _shape_idx: int, entrance: Node2D) -> void:
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	var player: Node2D = get_node_or_null("Player")
+	if player == null:
+		return
+	if player.global_position.distance_to(entrance.global_position) > 80.0:
+		return
+	get_viewport().set_input_as_handled()
+	mine_entrance_clicked.emit()
