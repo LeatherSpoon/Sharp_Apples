@@ -75,7 +75,7 @@ func _build_activity_buttons() -> void:
 		desc.name = "Desc"
 		desc.text = ACTIVITY_DESCRIPTIONS.get(activity_key, "")
 		desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		desc.add_theme_font_size_override("font_size", 10)
+		desc.add_theme_font_size_override("font_size", 14)
 		vbox.add_child(desc)
 
 		activity_list.add_child(vbox)

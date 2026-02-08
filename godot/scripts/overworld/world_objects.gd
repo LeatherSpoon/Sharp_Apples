@@ -2,17 +2,25 @@ extends Node2D
 ## Spawns destructible trees, boulders, and the Master NPC in the overworld.
 ## Resources respawn after a cooldown so the player always has things to punch.
 
+# Exclusion zones — no resources spawn inside these (with 20px margin)
+const EXCLUSION_ZONES: Array[Rect2] = [
+	Rect2(-320, -370, 190, 190),   # Dojo: (-300,-350) to (-150,-200) + margin
+	Rect2(130, -220, 240, 190),    # Pond: (150,-200) to (350,-50) + margin
+	Rect2(-70, -520, 140, 1040),   # Path1 vertical: (-50,-500) to (50,500) + margin
+	Rect2(-520, -50, 1040, 100),   # Path2 horizontal: (-500,-30) to (500,30) + margin
+]
+
 const TREE_POSITIONS: Array[Vector2] = [
-	Vector2(-400, -100), Vector2(-350, 50), Vector2(-180, -300),
-	Vector2(100, 150), Vector2(280, -120), Vector2(420, 200),
+	Vector2(-400, -100), Vector2(-350, 80), Vector2(-180, 180),
+	Vector2(100, 150), Vector2(420, -200), Vector2(420, 200),
 	Vector2(-120, 320), Vector2(380, 330), Vector2(-450, 250),
-	Vector2(150, -400), Vector2(-80, -150), Vector2(450, -50),
+	Vector2(150, -400), Vector2(-400, -300), Vector2(450, -80),
 ]
 
 const BOULDER_POSITIONS: Array[Vector2] = [
-	Vector2(-300, 200), Vector2(200, 280), Vector2(-430, -200),
-	Vector2(400, -320), Vector2(0, 420), Vector2(-200, 100),
-	Vector2(320, 50), Vector2(-380, 350),
+	Vector2(-400, 200), Vector2(200, 280), Vector2(-430, -200),
+	Vector2(400, -320), Vector2(100, 420), Vector2(-200, 160),
+	Vector2(400, 100), Vector2(-380, 350),
 ]
 
 const RESPAWN_TIME: float = 10.0  # seconds until resources reappear
@@ -38,14 +46,23 @@ func _process(delta: float) -> void:
 
 # ---- Tree spawning ----
 
+func _is_valid_spawn_pos(pos: Vector2) -> bool:
+	for zone in EXCLUSION_ZONES:
+		if zone.has_point(pos):
+			return false
+	return true
+
+
 func _spawn_all_trees() -> void:
 	for pos in TREE_POSITIONS:
-		_create_resource("tree", pos)
+		if _is_valid_spawn_pos(pos):
+			_create_resource("tree", pos)
 
 
 func _spawn_all_boulders() -> void:
 	for pos in BOULDER_POSITIONS:
-		_create_resource("boulder", pos)
+		if _is_valid_spawn_pos(pos):
+			_create_resource("boulder", pos)
 
 
 func _create_resource(type: String, pos: Vector2) -> void:

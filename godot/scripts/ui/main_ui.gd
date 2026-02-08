@@ -50,6 +50,7 @@ var _displayed_pl: float = 1.0
 @onready var stats_btn: Button = %StatsBtn
 @onready var mastery_btn: Button = %MasteryBtn
 @onready var managers_btn: Button = %ManagersBtn
+@onready var gold_shop_menu_btn: Button = %GoldShopBtn
 @onready var pl_shop_menu_btn: Button = %PLShopBtn
 @onready var pedometer_btn: Button = %PedometerBtn
 @onready var master_reset_btn: Button = %MasterResetBtn
@@ -88,6 +89,9 @@ var _meditation_info_label: Label = null
 var _meditate_confirm_btn: Button = null
 var _cutscene_overlay: ColorRect = null
 var _cutscene_label: Label = null
+var _gold_shop_popup: PanelContainer = null
+var _gold_shop_list: VBoxContainer = null
+var _gold_shop_balance_label: Label = null
 var _step_alloc_label: Label = null
 var _combat_stats_label: Label = null
 
@@ -140,6 +144,7 @@ func _ready() -> void:
 	stats_btn.pressed.connect(_open_stats)
 	mastery_btn.pressed.connect(_open_mastery)
 	managers_btn.pressed.connect(_on_managers_pressed)
+	gold_shop_menu_btn.pressed.connect(_open_gold_shop)
 	pl_shop_menu_btn.pressed.connect(_open_pl_shop)
 	pedometer_btn.pressed.connect(_open_steps_shop)
 	master_reset_btn.text = "Meditate (Prestige)"
@@ -160,6 +165,7 @@ func _ready() -> void:
 
 	# Create dynamic popups
 	_create_opponent_popup()
+	_create_gold_shop_popup()
 	_create_pl_shop_popup()
 	_create_meditation_popup()
 
@@ -270,11 +276,12 @@ func _create_opponent_popup() -> void:
 	var title := Label.new()
 	title.text = "SELECT OPPONENT"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(title)
 
 	_combat_stats_label = Label.new()
 	_combat_stats_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_combat_stats_label.add_theme_font_size_override("font_size", 11)
+	_combat_stats_label.add_theme_font_size_override("font_size", 14)
 	vbox.add_child(_combat_stats_label)
 
 	var sep := HSeparator.new()
@@ -326,7 +333,7 @@ func _refresh_opponent_list() -> void:
 
 		var info := Label.new()
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.add_theme_font_size_override("font_size", 11)
+		info.add_theme_font_size_override("font_size", 14)
 		var default_marker := " [DEFAULT]" if GameState.default_opponent_tier == i else ""
 		info.text = "%s%s\nHP: %.0f  DMG: %.0f  Gold: %.0f" % [
 			opp_data["name"], default_marker, opp_hp, opp_dmg, opp_reward_gold
@@ -377,6 +384,144 @@ func _start_encounter(tier_idx: int) -> void:
 
 
 # ===========================================================================
+#  GOLD SHOP
+# ===========================================================================
+
+const GOLD_SHOP_ITEMS: Array[Dictionary] = [
+	{ "id": "stat_point", "name": "Stat Point", "cost": 25, "desc": "+1 stat point to allocate", "type": "stat_point", "value": 1, "repeatable": true },
+	{ "id": "exp_small", "name": "Training Scroll", "cost": 30, "desc": "+50 EXP", "type": "exp", "value": 50.0, "repeatable": true },
+	{ "id": "exp_large", "name": "Master Scroll", "cost": 150, "desc": "+300 EXP", "type": "exp", "value": 300.0, "repeatable": true },
+	{ "id": "atk_boost", "name": "Fist Wraps", "cost": 50, "desc": "+1 base Attack", "type": "attack", "value": 1.0, "repeatable": true },
+	{ "id": "def_boost", "name": "Body Armor", "cost": 50, "desc": "+1 base Defense", "type": "defense", "value": 1.0, "repeatable": true },
+	{ "id": "hp_boost", "name": "Health Tonic", "cost": 75, "desc": "+50 max HP", "type": "hp", "value": 50.0, "repeatable": true },
+	{ "id": "pl_boost", "name": "Power Elixir", "cost": 100, "desc": "+10 Power Level", "type": "pl", "value": 10.0, "repeatable": true },
+	{ "id": "steps_buy", "name": "Trail Map", "cost": 40, "desc": "+25 Steps", "type": "steps", "value": 25.0, "repeatable": true },
+]
+
+var _gold_shop_purchases: Dictionary = {}
+
+
+func _create_gold_shop_popup() -> void:
+	var ui_root: Control = $UILayer/UI
+
+	_gold_shop_popup = PanelContainer.new()
+	_gold_shop_popup.name = "GoldShopPopup"
+	_gold_shop_popup.visible = false
+	_gold_shop_popup.layout_mode = 1
+	_gold_shop_popup.anchors_preset = Control.PRESET_FULL_RECT
+	_gold_shop_popup.anchor_left = 0.05
+	_gold_shop_popup.anchor_top = 0.06
+	_gold_shop_popup.anchor_right = 0.95
+	_gold_shop_popup.anchor_bottom = 0.88
+	_gold_shop_popup.add_theme_stylebox_override("panel", _make_panel_style())
+	ui_root.add_child(_gold_shop_popup)
+
+	var vbox := VBoxContainer.new()
+	vbox.layout_mode = 2
+	vbox.add_theme_constant_override("separation", 6)
+	_gold_shop_popup.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "GOLD SHOP"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 20)
+	vbox.add_child(title)
+
+	var desc := Label.new()
+	desc.text = "Spend gold earned from combat on upgrades."
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.add_theme_font_size_override("font_size", 14)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(desc)
+
+	_gold_shop_balance_label = Label.new()
+	_gold_shop_balance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_gold_shop_balance_label.add_theme_font_size_override("font_size", 16)
+	vbox.add_child(_gold_shop_balance_label)
+
+	var sep := HSeparator.new()
+	vbox.add_child(sep)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+
+	_gold_shop_list = VBoxContainer.new()
+	_gold_shop_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_gold_shop_list.add_theme_constant_override("separation", 6)
+	scroll.add_child(_gold_shop_list)
+
+	var close_btn := Button.new()
+	close_btn.text = "Close"
+	close_btn.custom_minimum_size = Vector2(0, 40)
+	close_btn.pressed.connect(func(): _gold_shop_popup.visible = false)
+	vbox.add_child(close_btn)
+
+
+func _open_gold_shop() -> void:
+	menu_popup.visible = false
+	_refresh_gold_shop()
+	_gold_shop_popup.visible = true
+
+
+func _refresh_gold_shop() -> void:
+	for child in _gold_shop_list.get_children():
+		child.queue_free()
+
+	var gold := GameState.currencies.gold.balance
+	_gold_shop_balance_label.text = "Gold: %d" % int(gold)
+
+	for item in GOLD_SHOP_ITEMS:
+		var bought: int = _gold_shop_purchases.get(item["id"], 0)
+		var cost: float = float(item["cost"]) * pow(1.3, bought)
+
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+
+		var lbl := Label.new()
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lbl.add_theme_font_size_override("font_size", 14)
+		lbl.text = "%s — %s (%.0fg)" % [item["name"], item["desc"], cost]
+		if bought > 0:
+			lbl.text += " [x%d]" % bought
+		row.add_child(lbl)
+
+		var btn := Button.new()
+		btn.text = "Buy"
+		btn.custom_minimum_size = Vector2(60, 0)
+		btn.disabled = (gold < cost)
+		btn.pressed.connect(_on_buy_gold_item.bind(item, cost))
+		row.add_child(btn)
+
+		_gold_shop_list.add_child(row)
+
+
+func _on_buy_gold_item(item: Dictionary, cost: float) -> void:
+	if not GameState.currencies.gold.spend(cost):
+		return
+
+	match item["type"]:
+		"stat_point":
+			GameState.stat_points += int(item["value"])
+		"exp":
+			GameState.award_exp(item["value"])
+		"attack":
+			GameState.attack_skill += item["value"]
+		"defense":
+			GameState.defense_skill += item["value"]
+		"hp":
+			GameState.perm_hp_bonus += item["value"]
+		"pl":
+			GameState.currencies.power_level.earn(item["value"])
+		"steps":
+			GameState.currencies.pedometer.add_steps(item["value"])
+
+	var bought: int = _gold_shop_purchases.get(item["id"], 0)
+	_gold_shop_purchases[item["id"]] = bought + 1
+	_refresh_gold_shop()
+
+
+# ===========================================================================
 #  PL SHOP
 # ===========================================================================
 
@@ -403,12 +548,13 @@ func _create_pl_shop_popup() -> void:
 	var title := Label.new()
 	title.text = "POWER LEVEL SHOP"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(title)
 
 	var desc := Label.new()
 	desc.text = "Spend current Power Level on permanent upgrades.\nThese persist through Meditation."
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.add_theme_font_size_override("font_size", 11)
+	desc.add_theme_font_size_override("font_size", 14)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(desc)
 
@@ -456,7 +602,7 @@ func _refresh_pl_shop() -> void:
 
 		var lbl := Label.new()
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		lbl.add_theme_font_size_override("font_size", 11)
+		lbl.add_theme_font_size_override("font_size", 14)
 		lbl.text = "%s — %s (%.0f PL)" % [item["name"], item["desc"], cost]
 		if bought > 0:
 			lbl.text += " [x%d]" % bought
@@ -520,13 +666,13 @@ func _create_meditation_popup() -> void:
 	var title := Label.new()
 	title.text = "PRESTIGE — MEDITATION"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "Sit on your mat and start anew — stronger than before."
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 10)
+	subtitle.add_theme_font_size_override("font_size", 14)
 	subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.9))
 	vbox.add_child(subtitle)
 
@@ -535,7 +681,7 @@ func _create_meditation_popup() -> void:
 
 	_meditation_info_label = Label.new()
 	_meditation_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_meditation_info_label.add_theme_font_size_override("font_size", 11)
+	_meditation_info_label.add_theme_font_size_override("font_size", 14)
 	_meditation_info_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_meditation_info_label)
 
@@ -571,7 +717,7 @@ func _create_meditation_popup() -> void:
 	_cutscene_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_cutscene_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_cutscene_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_cutscene_label.add_theme_font_size_override("font_size", 16)
+	_cutscene_label.add_theme_font_size_override("font_size", 24)
 	_cutscene_label.add_theme_color_override("font_color", Color(1, 1, 1))
 	_cutscene_label.custom_minimum_size = Vector2(300, 200)
 	_cutscene_label.text = ""
@@ -695,6 +841,8 @@ func _close_all_popups() -> void:
 	mastery_popup.visible = false
 	if _opponent_popup:
 		_opponent_popup.visible = false
+	if _gold_shop_popup:
+		_gold_shop_popup.visible = false
 	if _pl_shop_popup:
 		_pl_shop_popup.visible = false
 	if _meditation_popup:
@@ -902,13 +1050,13 @@ func _build_steps_shop() -> void:
 	var alloc_title := Label.new()
 	alloc_title.text = "STEP ALLOCATION"
 	alloc_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	alloc_title.add_theme_font_size_override("font_size", 14)
+	alloc_title.add_theme_font_size_override("font_size", 18)
 	steps_shop_list.add_child(alloc_title)
 
 	var alloc_desc := Label.new()
 	alloc_desc.text = "Choose where your walking steps go:"
 	alloc_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	alloc_desc.add_theme_font_size_override("font_size", 10)
+	alloc_desc.add_theme_font_size_override("font_size", 14)
 	steps_shop_list.add_child(alloc_desc)
 
 	var alloc_row := HBoxContainer.new()
@@ -947,7 +1095,7 @@ func _build_steps_shop() -> void:
 	_step_alloc_label = Label.new()
 	_step_alloc_label.name = "AllocInfo"
 	_step_alloc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_step_alloc_label.add_theme_font_size_override("font_size", 10)
+	_step_alloc_label.add_theme_font_size_override("font_size", 14)
 	steps_shop_list.add_child(_step_alloc_label)
 
 	var sep := HSeparator.new()
@@ -956,7 +1104,7 @@ func _build_steps_shop() -> void:
 	var shop_title := Label.new()
 	shop_title.text = "STEP SHOP"
 	shop_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	shop_title.add_theme_font_size_override("font_size", 14)
+	shop_title.add_theme_font_size_override("font_size", 18)
 	steps_shop_list.add_child(shop_title)
 
 	# PL Shop shortcut
