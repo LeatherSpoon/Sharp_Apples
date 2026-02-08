@@ -100,6 +100,7 @@ var _combat_stats_label: Label = null
 var _font_scale: float = 1.0
 var _font_slider: HSlider = null
 var _font_value_label: Label = null
+var _ui_theme: Theme = null
 var _augment_popup: PanelContainer = null
 var _augment_list: VBoxContainer = null
 var _energy_info_label: Label = null
@@ -137,6 +138,11 @@ var _pl_shop_purchases: Dictionary = {}
 
 
 func _ready() -> void:
+	# Global theme for font scaling — affects ALL controls without explicit overrides
+	_ui_theme = Theme.new()
+	_ui_theme.default_font_size = _fs(21)
+	$UILayer/UI.theme = _ui_theme
+
 	# Bottom nav
 	overworld_btn.pressed.connect(_switch_to.bind(ViewMode.OVERWORLD))
 	train_btn.pressed.connect(_switch_to.bind(ViewMode.TRAINING))
@@ -306,12 +312,12 @@ func _create_opponent_popup() -> void:
 	var title := Label.new()
 	title.text = "SELECT OPPONENT"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_font_size_override("font_size", _fs(30))
 	vbox.add_child(title)
 
 	_combat_stats_label = Label.new()
 	_combat_stats_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_combat_stats_label.add_theme_font_size_override("font_size", 21)
+	_combat_stats_label.add_theme_font_size_override("font_size", _fs(21))
 	vbox.add_child(_combat_stats_label)
 
 	var sep := HSeparator.new()
@@ -465,13 +471,13 @@ func _create_travel_popup() -> void:
 	var title := Label.new()
 	title.text = "WORLD TRAVEL"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_font_size_override("font_size", _fs(30))
 	vbox.add_child(title)
 
 	var desc := Label.new()
 	desc.text = "Travel to a different world. Each has unique challenges."
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.add_theme_font_size_override("font_size", 21)
+	desc.add_theme_font_size_override("font_size", _fs(21))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(desc)
 
@@ -519,7 +525,7 @@ func _refresh_travel_list() -> void:
 
 		var info := Label.new()
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.add_theme_font_size_override("font_size", 21)
+		info.add_theme_font_size_override("font_size", _fs(21))
 		if unlocked:
 			var marker := " [HERE]" if is_current else ""
 			info.text = "%s (Tier %d)%s" % [env["name"], env["tier"], marker]
@@ -547,7 +553,7 @@ func _refresh_travel_list() -> void:
 		if unlocked:
 			var desc_lbl := Label.new()
 			desc_lbl.text = env["description"]
-			desc_lbl.add_theme_font_size_override("font_size", 18)
+			desc_lbl.add_theme_font_size_override("font_size", _fs(18))
 			desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 			desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			row.add_child(desc_lbl)
@@ -693,19 +699,19 @@ func _create_gold_shop_popup() -> void:
 	var title := Label.new()
 	title.text = "GOLD SHOP"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_font_size_override("font_size", _fs(30))
 	vbox.add_child(title)
 
 	var desc := Label.new()
 	desc.text = "Spend gold earned from combat on upgrades."
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.add_theme_font_size_override("font_size", 21)
+	desc.add_theme_font_size_override("font_size", _fs(21))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(desc)
 
 	_gold_shop_balance_label = Label.new()
 	_gold_shop_balance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_gold_shop_balance_label.add_theme_font_size_override("font_size", 24)
+	_gold_shop_balance_label.add_theme_font_size_override("font_size", _fs(24))
 	vbox.add_child(_gold_shop_balance_label)
 
 	var sep := HSeparator.new()
@@ -749,7 +755,7 @@ func _refresh_gold_shop() -> void:
 
 		var lbl := Label.new()
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		lbl.add_theme_font_size_override("font_size", 21)
+		lbl.add_theme_font_size_override("font_size", _fs(21))
 		lbl.text = "%s — %s (%.0fg)" % [item["name"], item["desc"], cost]
 		if bought > 0:
 			lbl.text += " [x%d]" % bought
@@ -758,6 +764,7 @@ func _refresh_gold_shop() -> void:
 		var btn := Button.new()
 		btn.text = "Buy"
 		btn.custom_minimum_size = Vector2(60, 0)
+		btn.add_theme_font_size_override("font_size", _fs(18))
 		btn.disabled = (gold < cost)
 		btn.pressed.connect(_on_buy_gold_item.bind(item, cost))
 		row.add_child(btn)
@@ -817,13 +824,13 @@ func _create_pl_shop_popup() -> void:
 	var title := Label.new()
 	title.text = "POWER LEVEL SHOP"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_font_size_override("font_size", _fs(30))
 	vbox.add_child(title)
 
 	var desc := Label.new()
 	desc.text = "Spend current Power Level on permanent upgrades.\nThese persist through Meditation."
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.add_theme_font_size_override("font_size", 21)
+	desc.add_theme_font_size_override("font_size", _fs(21))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(desc)
 
@@ -871,7 +878,7 @@ func _refresh_pl_shop() -> void:
 
 		var lbl := Label.new()
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		lbl.add_theme_font_size_override("font_size", 21)
+		lbl.add_theme_font_size_override("font_size", _fs(21))
 		lbl.text = "%s — %s (%.0f PL)" % [item["name"], item["desc"], cost]
 		if bought > 0:
 			lbl.text += " [x%d]" % bought
@@ -880,6 +887,7 @@ func _refresh_pl_shop() -> void:
 		var btn := Button.new()
 		btn.text = "Buy"
 		btn.custom_minimum_size = Vector2(56, 0)
+		btn.add_theme_font_size_override("font_size", _fs(18))
 		btn.disabled = (current_pl < cost)
 		btn.pressed.connect(_on_buy_pl_item.bind(item, cost))
 		row.add_child(btn)
@@ -935,13 +943,13 @@ func _create_meditation_popup() -> void:
 	var title := Label.new()
 	title.text = "PRESTIGE — MEDITATION"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_font_size_override("font_size", _fs(30))
 	vbox.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "Sit on your mat and start anew — stronger than before."
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 21)
+	subtitle.add_theme_font_size_override("font_size", _fs(21))
 	subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.9))
 	vbox.add_child(subtitle)
 
@@ -950,7 +958,7 @@ func _create_meditation_popup() -> void:
 
 	_meditation_info_label = Label.new()
 	_meditation_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_meditation_info_label.add_theme_font_size_override("font_size", 21)
+	_meditation_info_label.add_theme_font_size_override("font_size", _fs(21))
 	_meditation_info_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_meditation_info_label)
 
@@ -986,7 +994,7 @@ func _create_meditation_popup() -> void:
 	_cutscene_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_cutscene_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_cutscene_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_cutscene_label.add_theme_font_size_override("font_size", 36)
+	_cutscene_label.add_theme_font_size_override("font_size", _fs(36))
 	_cutscene_label.add_theme_color_override("font_color", Color(1, 1, 1))
 	_cutscene_label.custom_minimum_size = Vector2(300, 200)
 	_cutscene_label.text = ""
@@ -1175,6 +1183,7 @@ func _build_stats_list() -> void:
 		var lbl := Label.new()
 		lbl.name = "Label"
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lbl.add_theme_font_size_override("font_size", _fs(21))
 		lbl.text = "%s: %.0f" % [stat_names[kind], GameState.variables.get_value(kind)]
 		row.add_child(lbl)
 
@@ -1182,6 +1191,7 @@ func _build_stats_list() -> void:
 		btn.name = "AddBtn"
 		btn.text = "+1"
 		btn.custom_minimum_size = Vector2(56, 0)
+		btn.add_theme_font_size_override("font_size", _fs(18))
 		btn.pressed.connect(_on_stat_point_spent.bind(kind))
 		row.add_child(btn)
 
@@ -1193,6 +1203,7 @@ func _build_stats_list() -> void:
 	var atk_lbl := Label.new()
 	atk_lbl.name = "Label"
 	atk_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	atk_lbl.add_theme_font_size_override("font_size", _fs(21))
 	atk_lbl.text = "Attack: %.1f (eff: %.0f)" % [GameState.attack_skill, GameState.effective_attack()]
 	atk_row.add_child(atk_lbl)
 	stats_list.add_child(atk_row)
@@ -1202,6 +1213,7 @@ func _build_stats_list() -> void:
 	var def_lbl := Label.new()
 	def_lbl.name = "Label"
 	def_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	def_lbl.add_theme_font_size_override("font_size", _fs(21))
 	def_lbl.text = "Defense: %.1f (eff: %.0f)" % [GameState.defense_skill, GameState.effective_defense()]
 	def_row.add_child(def_lbl)
 	stats_list.add_child(def_row)
@@ -1265,6 +1277,7 @@ func _build_mastery_list() -> void:
 	for theme in Combat.THEME_ORDER:
 		var lbl := Label.new()
 		lbl.name = "Mastery_%d" % theme
+		lbl.add_theme_font_size_override("font_size", _fs(21))
 		var m: Combat.ThemeMastery = GameState.mastery.themes[theme]
 		var req := Combat.mastery_xp_required(m.level)
 		lbl.text = "%s  Lv.%d  (%.0f / %.0f XP)" % [theme_names[theme], m.level, m.xp, req]
@@ -1325,13 +1338,13 @@ func _build_steps_shop() -> void:
 	var alloc_title := Label.new()
 	alloc_title.text = "STEP ALLOCATION"
 	alloc_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	alloc_title.add_theme_font_size_override("font_size", 27)
+	alloc_title.add_theme_font_size_override("font_size", _fs(27))
 	steps_shop_list.add_child(alloc_title)
 
 	var alloc_desc := Label.new()
 	alloc_desc.text = "Choose where your walking steps go:"
 	alloc_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	alloc_desc.add_theme_font_size_override("font_size", 21)
+	alloc_desc.add_theme_font_size_override("font_size", _fs(21))
 	steps_shop_list.add_child(alloc_desc)
 
 	var alloc_row := HBoxContainer.new()
@@ -1370,7 +1383,7 @@ func _build_steps_shop() -> void:
 	_step_alloc_label = Label.new()
 	_step_alloc_label.name = "AllocInfo"
 	_step_alloc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_step_alloc_label.add_theme_font_size_override("font_size", 21)
+	_step_alloc_label.add_theme_font_size_override("font_size", _fs(21))
 	steps_shop_list.add_child(_step_alloc_label)
 
 	var sep := HSeparator.new()
@@ -1379,7 +1392,7 @@ func _build_steps_shop() -> void:
 	var shop_title := Label.new()
 	shop_title.text = "STEP SHOP"
 	shop_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	shop_title.add_theme_font_size_override("font_size", 27)
+	shop_title.add_theme_font_size_override("font_size", _fs(27))
 	steps_shop_list.add_child(shop_title)
 
 	for item in STEP_UPGRADES:
@@ -1389,6 +1402,7 @@ func _build_steps_shop() -> void:
 		var lbl := Label.new()
 		lbl.name = "Label"
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lbl.add_theme_font_size_override("font_size", _fs(21))
 		lbl.text = "%s — %s (%d steps)" % [item["name"], item["desc"], item["cost"]]
 		row.add_child(lbl)
 
@@ -1396,6 +1410,7 @@ func _build_steps_shop() -> void:
 		btn.name = "BuyBtn"
 		btn.text = "Buy"
 		btn.custom_minimum_size = Vector2(56, 0)
+		btn.add_theme_font_size_override("font_size", _fs(18))
 		btn.pressed.connect(_on_buy_step_upgrade.bind(item))
 		row.add_child(btn)
 
@@ -1583,7 +1598,7 @@ func _add_augment_menu_button() -> void:
 			break
 	var aug_btn := Button.new()
 	aug_btn.name = "AugmentBtn"
-	aug_btn.text = "Augments"
+	aug_btn.text = "Power-Ups"
 	aug_btn.pressed.connect(_open_augments)
 	menu_vbox.add_child(aug_btn)
 	if travel_idx >= 0:
@@ -1611,20 +1626,20 @@ func _create_augment_popup() -> void:
 	_augment_popup.add_child(vbox)
 
 	var title := Label.new()
-	title.text = "AUGMENTS"
+	title.text = "POWER-UPS"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", _fs(27))
 	vbox.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "Allocate energy to train or power up augments."
+	subtitle.text = "Spend stamina to train skills or boost your gear."
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", _fs(18))
 	subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(subtitle)
 
-	# Energy info
+	# Stamina info
 	_energy_info_label = Label.new()
 	_energy_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_energy_info_label.add_theme_font_size_override("font_size", _fs(21))
@@ -1648,19 +1663,19 @@ func _create_augment_popup() -> void:
 	var cap_btn := Button.new()
 	cap_btn.text = "Cap"
 	cap_btn.add_theme_font_size_override("font_size", _fs(16))
-	cap_btn.pressed.connect(func(): _energy_input.text = "%d" % int(GameState.energy.idle))
+	cap_btn.pressed.connect(func(): _energy_input.text = "%d" % int(GameState.energy.cap))
 	input_row.add_child(cap_btn)
 
 	var half_btn := Button.new()
 	half_btn.text = "1/2"
 	half_btn.add_theme_font_size_override("font_size", _fs(16))
-	half_btn.pressed.connect(func(): _energy_input.text = "%d" % int(GameState.energy.idle / 2.0))
+	half_btn.pressed.connect(func(): _energy_input.text = "%d" % int(GameState.energy.cap / 2.0))
 	input_row.add_child(half_btn)
 
 	var quarter_btn := Button.new()
 	quarter_btn.text = "1/4"
 	quarter_btn.add_theme_font_size_override("font_size", _fs(16))
-	quarter_btn.pressed.connect(func(): _energy_input.text = "%d" % int(GameState.energy.idle / 4.0))
+	quarter_btn.pressed.connect(func(): _energy_input.text = "%d" % int(GameState.energy.cap / 4.0))
 	input_row.add_child(quarter_btn)
 
 	vbox.add_child(input_row)
@@ -1678,7 +1693,7 @@ func _create_augment_popup() -> void:
 	_augment_list.add_theme_constant_override("separation", 3)
 	scroll.add_child(_augment_list)
 
-	# Augment ATK/DEF multiplier display
+	# Boost multiplier display
 	var mult_label := Label.new()
 	mult_label.name = "MultLabel"
 	mult_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1715,12 +1730,12 @@ func _refresh_augment_panel() -> void:
 
 	var e := GameState.energy
 
-	# Update energy info
-	_energy_info_label.text = "Energy: %.0f Idle / %.0f Cap  |  Power: %.1f" % [e.idle, e.cap, e.power]
+	# Update stamina info
+	_energy_info_label.text = "Stamina: %.0f Free / %.0f Max  |  Potency: %.1f" % [e.idle, e.cap, e.power]
 
-	# ATK/DEF training rows
-	_add_energy_training_row("Attack Training", e.allocated_attack, "_atk")
-	_add_energy_training_row("Defense Training", e.allocated_defense, "_def")
+	# Offense/Guard training rows
+	_add_energy_training_row("Offense Training", e.allocated_attack, "_atk")
+	_add_energy_training_row("Guard Training", e.allocated_defense, "_def")
 
 	var sep := HSeparator.new()
 	_augment_list.add_child(sep)
@@ -1735,7 +1750,7 @@ func _refresh_augment_panel() -> void:
 	h_name.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	header.add_child(h_name)
 	var h_energy := Label.new()
-	h_energy.text = "Energy"
+	h_energy.text = "Stamina"
 	h_energy.add_theme_font_size_override("font_size", _fs(16))
 	h_energy.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	h_energy.custom_minimum_size = Vector2(60, 0)
@@ -1829,7 +1844,7 @@ func _refresh_augment_panel() -> void:
 				mult_node = child
 				break
 	if mult_node:
-		mult_node.text = "Total ATK Mult: x%.2f  |  DEF Mult: x%.2f" % [float(mults["attack"]), float(mults["defense"])]
+		mult_node.text = "Offense Boost: x%.2f  |  Guard Boost: x%.2f" % [float(mults["attack"]), float(mults["defense"])]
 
 
 func _add_energy_training_row(label_text: String, allocated: float, tag: String) -> void:
@@ -2010,11 +2025,22 @@ func _on_font_scale_changed(value: float) -> void:
 	if _font_value_label:
 		_font_value_label.text = "%.0f%%" % (_font_scale * 100.0)
 
-	# Apply to all existing controls recursively
+	# Update global theme default — catches ALL non-overridden controls
+	if _ui_theme:
+		_ui_theme.default_font_size = _fs(21)
+
+	# Apply to all existing controls with explicit overrides
 	_scale_fonts_recursive($UILayer/UI)
 
-	# Rebuild dynamic popups to pick up new scale
+	# Rebuild menu font sizes
 	_apply_menu_font_sizes()
+
+	# Rebuild dynamic panels that were built with hardcoded sizes
+	_build_stats_list()
+	_build_steps_shop()
+	_build_mastery_list()
+	if _current_view == ViewMode.STEPS_SHOP:
+		_refresh_steps_shop()
 
 
 func _scale_fonts_recursive(node: Node) -> void:
