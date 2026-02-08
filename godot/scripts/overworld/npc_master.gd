@@ -1,6 +1,8 @@
 extends CharacterBody2D
 ## Master NPC — patrols back and forth in front of the dojo.
-## Purely visual for now; later can trigger interactions.
+## Click to interact and receive dialogue/advice.
+
+signal master_interacted
 
 const PATROL_SPEED: float = 30.0
 const PATROL_DISTANCE: float = 80.0

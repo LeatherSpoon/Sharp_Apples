@@ -97,21 +97,34 @@ var _gold_shop_list: VBoxContainer = null
 var _gold_shop_balance_label: Label = null
 var _step_alloc_label: Label = null
 var _combat_stats_label: Label = null
+var _font_scale: float = 1.0
+var _font_slider: HSlider = null
+var _font_value_label: Label = null
+var _augment_popup: PanelContainer = null
+var _augment_list: VBoxContainer = null
+var _energy_info_label: Label = null
+var _energy_input: LineEdit = null
 
 # ---- Opponent tiers ----
 const OPPONENT_TIERS: Array[Dictionary] = [
-	{ "name": "Trainee", "power_mult": 0.5, "hp_mult": 0.5, "damage_mult": 0.3, "reward_mult": 0.3 },
-	{ "name": "Guardian", "power_mult": 1.0, "hp_mult": 1.0, "damage_mult": 1.0, "reward_mult": 1.0 },
-	{ "name": "Elite", "power_mult": 2.0, "hp_mult": 2.0, "damage_mult": 2.0, "reward_mult": 2.5 },
-	{ "name": "Champion", "power_mult": 5.0, "hp_mult": 4.0, "damage_mult": 4.0, "reward_mult": 6.0 },
-	{ "name": "Master", "power_mult": 10.0, "hp_mult": 8.0, "damage_mult": 8.0, "reward_mult": 15.0 },
+	{ "name": "Scrapper", "power_mult": 0.5, "hp_mult": 0.5, "damage_mult": 0.3, "reward_mult": 0.3 },
+	{ "name": "Brawler", "power_mult": 1.5, "hp_mult": 1.5, "damage_mult": 1.0, "reward_mult": 1.0 },
+	{ "name": "Enforcer", "power_mult": 4.0, "hp_mult": 4.0, "damage_mult": 3.0, "reward_mult": 2.5 },
+	{ "name": "Warden", "power_mult": 10.0, "hp_mult": 10.0, "damage_mult": 8.0, "reward_mult": 6.0 },
+	{ "name": "Grandmaster", "power_mult": 25.0, "hp_mult": 25.0, "damage_mult": 20.0, "reward_mult": 15.0 },
 ]
+
+# Environment-specific silly opponent names (overrides default tier names)
+const ENVIRONMENT_OPPONENT_NAMES: Dictionary = {
+	"forest_dojo": ["Angry Squirrel", "Grumpy Mailman", "Feral Raccoon", "HOA President", "Neighborhood Dad"],
+	"deep_mine": ["Cave Bat", "Tunnel Rat", "Lost Miner", "Rock Golem", "Mine Foreman"],
+}
 
 # ---- PL Shop items ----
 const PL_SHOP_ITEMS: Array[Dictionary] = [
-	{ "id": "pl_rate_1", "name": "Ki Flow I", "cost": 50, "desc": "+10% PL gain rate", "type": "pl_rate", "value": 0.1, "repeatable": true },
-	{ "id": "pl_rate_2", "name": "Ki Flow II", "cost": 200, "desc": "+25% PL gain rate", "type": "pl_rate", "value": 0.25, "repeatable": true },
-	{ "id": "pl_rate_3", "name": "Ki Flow III", "cost": 1000, "desc": "+50% PL gain rate", "type": "pl_rate", "value": 0.5, "repeatable": true },
+	{ "id": "pl_rate_1", "name": "Power Flow I", "cost": 50, "desc": "+10% PL gain rate", "type": "pl_rate", "value": 0.1, "repeatable": true },
+	{ "id": "pl_rate_2", "name": "Power Flow II", "cost": 200, "desc": "+25% PL gain rate", "type": "pl_rate", "value": 0.25, "repeatable": true },
+	{ "id": "pl_rate_3", "name": "Power Flow III", "cost": 1000, "desc": "+50% PL gain rate", "type": "pl_rate", "value": 0.5, "repeatable": true },
 	{ "id": "atk_perm_1", "name": "Iron Fist I", "cost": 100, "desc": "+1 permanent Attack", "type": "perm_attack", "value": 1.0, "repeatable": true },
 	{ "id": "atk_perm_2", "name": "Iron Fist II", "cost": 500, "desc": "+5 permanent Attack", "type": "perm_attack", "value": 5.0, "repeatable": true },
 	{ "id": "def_perm_1", "name": "Stone Skin I", "cost": 100, "desc": "+1 permanent Defense", "type": "perm_defense", "value": 1.0, "repeatable": true },
@@ -161,6 +174,10 @@ func _ready() -> void:
 	# Virtual joystick
 	virtual_joystick.joystick_input.connect(_on_joystick_input)
 
+	# World object interactions
+	world.mine_entrance_clicked.connect(_on_mine_entrance)
+	world.master_npc_clicked.connect(_on_master_npc_interact)
+
 	_switch_to(ViewMode.OVERWORLD)
 	_build_gear_shop()
 	_build_stats_list()
@@ -173,6 +190,21 @@ func _ready() -> void:
 	_create_gold_shop_popup()
 	_create_pl_shop_popup()
 	_create_meditation_popup()
+	_create_augment_popup()
+
+	# Hide Mastery Progress from menu (still accessible elsewhere)
+	mastery_btn.visible = false
+	# Hide Managers until player is told how to use them
+	managers_btn.visible = false
+
+	# Add Augments button to menu (insert before Travel)
+	_add_augment_menu_button()
+
+	# Fix menu popup font sizes to match rest of UI
+	_apply_menu_font_sizes()
+
+	# Add font size controls to Settings popup
+	_setup_font_settings()
 
 
 func _process(_delta: float) -> void:
@@ -208,13 +240,8 @@ func _update_banner() -> void:
 func _update_stats() -> void:
 	gold_label.text = "Gold: %d" % int(GameState.currencies.gold.balance)
 	env_label.text = GameState.environment.current_environment_name()
-	match GameState.step_allocation:
-		GameState.StepAllocation.STEPS:
-			steps_label.text = "Steps: %d" % int(GameState.currencies.pedometer.steps)
-		GameState.StepAllocation.ATTACK:
-			steps_label.text = "ATK: %.1f" % GameState.attack_skill
-		GameState.StepAllocation.DEFENSE:
-			steps_label.text = "DEF: %.1f" % GameState.defense_skill
+	# Always show steps count; skill allocation is shown in the Step Shop
+	steps_label.text = "Steps: %d" % int(GameState.currencies.pedometer.steps)
 
 
 func _update_exp_bar() -> void:
@@ -252,9 +279,7 @@ func _on_joystick_input(direction: Vector2) -> void:
 # ===========================================================================
 
 func _on_fight_pressed() -> void:
-	if GameState.default_opponent_tier >= 0 and GameState.default_opponent_tier < OPPONENT_TIERS.size():
-		_start_encounter(GameState.default_opponent_tier)
-		return
+	# Always show selection popup so player can change opponent or review stats
 	_show_opponent_popup()
 
 
@@ -320,6 +345,7 @@ func _refresh_opponent_list() -> void:
 
 	var env := GameState.environment.current_environment()
 	var tier: int = env["tier"]
+	var env_id: String = env["id"]
 	var eff_atk := GameState.effective_attack()
 	var eff_def := GameState.effective_defense()
 
@@ -327,33 +353,46 @@ func _refresh_opponent_list() -> void:
 		eff_atk, eff_def, GameState.effective_max_hp()
 	]
 
+	# PL-based scaling so opponents stay challenging as player grows
+	var pl := maxf(GameState.currencies.effective_power_level(), 1.0)
+	var pl_scale := 1.0 + sqrt(pl) / 10.0
+
+	# Environment-specific opponent names
+	var env_names: Array = ENVIRONMENT_OPPONENT_NAMES.get(env_id, [])
+
 	for i in OPPONENT_TIERS.size():
 		var opp_data: Dictionary = OPPONENT_TIERS[i]
-		var opp_hp: float = (30.0 + 20.0 * tier) * float(opp_data["hp_mult"])
-		var opp_dmg: float = (3.0 + 2.0 * tier) * float(opp_data["damage_mult"])
-		var opp_reward_gold: float = 10.0 * tier * float(opp_data["reward_mult"])
+		var opp_hp: float = (30.0 + 20.0 * tier) * float(opp_data["hp_mult"]) * pl_scale
+		var opp_dmg: float = (3.0 + 2.0 * tier) * float(opp_data["damage_mult"]) * pl_scale
+		var opp_reward_gold: float = 10.0 * tier * float(opp_data["reward_mult"]) * pl_scale
+
+		var display_name: String = opp_data["name"]
+		if env_names.size() > i:
+			display_name = env_names[i]
 
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 4)
 
 		var info := Label.new()
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.add_theme_font_size_override("font_size", 21)
+		info.add_theme_font_size_override("font_size", _fs(21))
 		var default_marker := " [DEFAULT]" if GameState.default_opponent_tier == i else ""
 		info.text = "%s%s\nHP: %.0f  DMG: %.0f  Gold: %.0f" % [
-			opp_data["name"], default_marker, opp_hp, opp_dmg, opp_reward_gold
+			display_name, default_marker, opp_hp, opp_dmg, opp_reward_gold
 		]
 		row.add_child(info)
 
 		var fight_b := Button.new()
 		fight_b.text = "Fight"
 		fight_b.custom_minimum_size = Vector2(56, 0)
+		fight_b.add_theme_font_size_override("font_size", _fs(18))
 		fight_b.pressed.connect(_start_encounter.bind(i))
 		row.add_child(fight_b)
 
 		var default_b := Button.new()
 		default_b.text = "Set Def."
-		default_b.custom_minimum_size = Vector2(64, 0)
+		default_b.custom_minimum_size = Vector2(72, 0)
+		default_b.add_theme_font_size_override("font_size", _fs(18))
 		default_b.pressed.connect(_set_default_opponent.bind(i))
 		row.add_child(default_b)
 
@@ -369,19 +408,30 @@ func _start_encounter(tier_idx: int) -> void:
 	_opponent_popup.visible = false
 	var env := GameState.environment.current_environment()
 	var env_tier: int = env["tier"]
+	var env_id: String = env["id"]
 	var opp_data: Dictionary = OPPONENT_TIERS[tier_idx]
 
+	# PL-based scaling so opponents stay challenging
+	var pl := maxf(GameState.currencies.effective_power_level(), 1.0)
+	var pl_scale := 1.0 + sqrt(pl) / 10.0
+
+	# Environment-specific names
+	var env_names: Array = ENVIRONMENT_OPPONENT_NAMES.get(env_id, [])
+	var display_name: String = opp_data["name"]
+	if env_names.size() > tier_idx:
+		display_name = env_names[tier_idx]
+
 	var opp := Encounter.OpponentDefinition.new()
-	opp.id = "env_%s_%s" % [env["id"], opp_data["name"].to_lower()]
-	opp.opponent_name = "%s %s" % [env["name"], opp_data["name"]]
-	opp.base_power = 10.0 * env_tier * float(opp_data["power_mult"])
-	opp.base_hp = (30.0 + 20.0 * env_tier) * float(opp_data["hp_mult"])
-	opp.base_damage = (3.0 + 2.0 * env_tier) * float(opp_data["damage_mult"])
+	opp.id = "env_%s_%s" % [env_id, display_name.to_lower().replace(" ", "_")]
+	opp.opponent_name = "%s %s" % [env["name"], display_name]
+	opp.base_power = 10.0 * env_tier * float(opp_data["power_mult"]) * pl_scale
+	opp.base_hp = (30.0 + 20.0 * env_tier) * float(opp_data["hp_mult"]) * pl_scale
+	opp.base_damage = (3.0 + 2.0 * env_tier) * float(opp_data["damage_mult"]) * pl_scale
 	opp.attack_speed = 1.0
-	opp.gold_reward = 10.0 * env_tier * float(opp_data["reward_mult"])
-	opp.pl_reward = 5.0 * env_tier * float(opp_data["reward_mult"])
+	opp.gold_reward = 10.0 * env_tier * float(opp_data["reward_mult"]) * pl_scale
+	opp.pl_reward = 5.0 * env_tier * float(opp_data["reward_mult"]) * pl_scale
 	opp.mastery_xp_reward = 3.0 * env_tier * float(opp_data["reward_mult"])
-	opp.environment_id = env["id"]
+	opp.environment_id = env_id
 	opp.is_boss = (tier_idx >= 4)
 
 	_switch_to(ViewMode.COMBAT)
@@ -517,6 +567,89 @@ func _do_travel(env_index: int) -> void:
 		world.apply_world(env)
 
 	_switch_to(ViewMode.OVERWORLD)
+
+
+# ---- Mine Entrance ----
+
+func _on_mine_entrance() -> void:
+	# Find the Deep Mine environment index and travel there
+	for i in GameEnvironment.ENVIRONMENTS.size():
+		if GameEnvironment.ENVIRONMENTS[i]["id"] == "deep_mine":
+			_do_travel(i)
+			return
+
+
+# ---- Master NPC Interaction ----
+
+const MASTER_DIALOGUES: Array[String] = [
+	"Welcome, young one. Your fists are your first weapon. Punch the trees and boulders to grow stronger.",
+	"Energy is precious. Allocate it wisely — you cannot train everything at once.",
+	"The mine to the west holds greater challenges. When you are ready, step inside.",
+	"True power comes not from strength alone, but from patience. Meditate when the time is right.",
+	"I see potential in you. Keep training. The path ahead is long.",
+	"Have you tried the augments? Even a pair of Safety Scissors can tip the balance.",
+	"Each world you visit will test you differently. Adapt or fall.",
+	"Gold is earned through combat. Spend it wisely in the shops.",
+]
+
+var _master_dialogue_index: int = 0
+var _master_dialogue_popup: PanelContainer = null
+
+func _on_master_npc_interact() -> void:
+	_close_all_popups()
+	if _master_dialogue_popup == null:
+		_create_master_dialogue_popup()
+
+	var text: String = MASTER_DIALOGUES[_master_dialogue_index % MASTER_DIALOGUES.size()]
+	_master_dialogue_index += 1
+
+	var lbl: Label = _master_dialogue_popup.get_node("VBox/DialogueLabel")
+	lbl.text = "Master says:\n\n\"%s\"" % text
+	_master_dialogue_popup.visible = true
+
+
+func _create_master_dialogue_popup() -> void:
+	var ui_root: Control = $UILayer/UI
+
+	_master_dialogue_popup = PanelContainer.new()
+	_master_dialogue_popup.name = "MasterDialoguePopup"
+	_master_dialogue_popup.visible = false
+	_master_dialogue_popup.layout_mode = 1
+	_master_dialogue_popup.anchors_preset = Control.PRESET_FULL_RECT
+	_master_dialogue_popup.anchor_left = 0.08
+	_master_dialogue_popup.anchor_top = 0.25
+	_master_dialogue_popup.anchor_right = 0.92
+	_master_dialogue_popup.anchor_bottom = 0.65
+	_master_dialogue_popup.add_theme_stylebox_override("panel", _make_panel_style())
+	ui_root.add_child(_master_dialogue_popup)
+
+	var vbox := VBoxContainer.new()
+	vbox.name = "VBox"
+	vbox.layout_mode = 2
+	vbox.add_theme_constant_override("separation", 8)
+	_master_dialogue_popup.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "MASTER"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", _fs(27))
+	title.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
+	vbox.add_child(title)
+
+	var dialogue_lbl := Label.new()
+	dialogue_lbl.name = "DialogueLabel"
+	dialogue_lbl.text = ""
+	dialogue_lbl.add_theme_font_size_override("font_size", _fs(21))
+	dialogue_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dialogue_lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(dialogue_lbl)
+
+	var close_btn := Button.new()
+	close_btn.text = "OK"
+	close_btn.custom_minimum_size = Vector2(0, 36)
+	close_btn.add_theme_font_size_override("font_size", _fs(21))
+	close_btn.pressed.connect(func(): _master_dialogue_popup.visible = false)
+	vbox.add_child(close_btn)
 
 
 # ===========================================================================
@@ -987,6 +1120,10 @@ func _close_all_popups() -> void:
 		_meditation_popup.visible = false
 	if _cutscene_overlay:
 		_cutscene_overlay.visible = false
+	if _augment_popup:
+		_augment_popup.visible = false
+	if _master_dialogue_popup:
+		_master_dialogue_popup.visible = false
 
 
 func _toggle_settings() -> void:
@@ -1245,15 +1382,6 @@ func _build_steps_shop() -> void:
 	shop_title.add_theme_font_size_override("font_size", 27)
 	steps_shop_list.add_child(shop_title)
 
-	# PL Shop shortcut
-	var pl_shop_btn := Button.new()
-	pl_shop_btn.text = "Open Power Level Shop"
-	pl_shop_btn.pressed.connect(_open_pl_shop)
-	steps_shop_list.add_child(pl_shop_btn)
-
-	var sep2 := HSeparator.new()
-	steps_shop_list.add_child(sep2)
-
 	for item in STEP_UPGRADES:
 		var row := HBoxContainer.new()
 		row.name = "Step_%s" % item["id"]
@@ -1440,18 +1568,461 @@ func _on_buy_tool(item: Dictionary) -> void:
 
 
 # ===========================================================================
+#  AUGMENTS / ENERGY SYSTEM
+# ===========================================================================
+
+func _add_augment_menu_button() -> void:
+	var menu_vbox := menu_popup.get_node_or_null("MenuVBox")
+	if menu_vbox == null:
+		return
+	# Insert after Character Stats (index 1), or find Travel and insert before it
+	var travel_idx := -1
+	for i in menu_vbox.get_child_count():
+		if menu_vbox.get_child(i) == travel_menu_btn:
+			travel_idx = i
+			break
+	var aug_btn := Button.new()
+	aug_btn.name = "AugmentBtn"
+	aug_btn.text = "Augments"
+	aug_btn.pressed.connect(_open_augments)
+	menu_vbox.add_child(aug_btn)
+	if travel_idx >= 0:
+		menu_vbox.move_child(aug_btn, travel_idx)
+
+
+func _create_augment_popup() -> void:
+	var ui_root: Control = $UILayer/UI
+
+	_augment_popup = PanelContainer.new()
+	_augment_popup.name = "AugmentPopup"
+	_augment_popup.visible = false
+	_augment_popup.layout_mode = 1
+	_augment_popup.anchors_preset = Control.PRESET_FULL_RECT
+	_augment_popup.anchor_left = 0.02
+	_augment_popup.anchor_top = 0.04
+	_augment_popup.anchor_right = 0.98
+	_augment_popup.anchor_bottom = 0.90
+	_augment_popup.add_theme_stylebox_override("panel", _make_panel_style())
+	ui_root.add_child(_augment_popup)
+
+	var vbox := VBoxContainer.new()
+	vbox.layout_mode = 2
+	vbox.add_theme_constant_override("separation", 4)
+	_augment_popup.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "AUGMENTS"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", _fs(27))
+	vbox.add_child(title)
+
+	var subtitle := Label.new()
+	subtitle.text = "Allocate energy to train or power up augments."
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", _fs(18))
+	subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
+	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(subtitle)
+
+	# Energy info
+	_energy_info_label = Label.new()
+	_energy_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_energy_info_label.add_theme_font_size_override("font_size", _fs(21))
+	vbox.add_child(_energy_info_label)
+
+	# Input row
+	var input_row := HBoxContainer.new()
+	input_row.add_theme_constant_override("separation", 6)
+
+	var input_lbl := Label.new()
+	input_lbl.text = "Input:"
+	input_lbl.add_theme_font_size_override("font_size", _fs(18))
+	input_row.add_child(input_lbl)
+
+	_energy_input = LineEdit.new()
+	_energy_input.text = "10"
+	_energy_input.custom_minimum_size = Vector2(80, 0)
+	_energy_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	input_row.add_child(_energy_input)
+
+	var cap_btn := Button.new()
+	cap_btn.text = "Cap"
+	cap_btn.add_theme_font_size_override("font_size", _fs(16))
+	cap_btn.pressed.connect(func(): _energy_input.text = "%d" % int(GameState.energy.idle))
+	input_row.add_child(cap_btn)
+
+	var half_btn := Button.new()
+	half_btn.text = "1/2"
+	half_btn.add_theme_font_size_override("font_size", _fs(16))
+	half_btn.pressed.connect(func(): _energy_input.text = "%d" % int(GameState.energy.idle / 2.0))
+	input_row.add_child(half_btn)
+
+	var quarter_btn := Button.new()
+	quarter_btn.text = "1/4"
+	quarter_btn.add_theme_font_size_override("font_size", _fs(16))
+	quarter_btn.pressed.connect(func(): _energy_input.text = "%d" % int(GameState.energy.idle / 4.0))
+	input_row.add_child(quarter_btn)
+
+	vbox.add_child(input_row)
+
+	var sep := HSeparator.new()
+	vbox.add_child(sep)
+
+	# Scrollable augment list
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+
+	_augment_list = VBoxContainer.new()
+	_augment_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_augment_list.add_theme_constant_override("separation", 3)
+	scroll.add_child(_augment_list)
+
+	# Augment ATK/DEF multiplier display
+	var mult_label := Label.new()
+	mult_label.name = "MultLabel"
+	mult_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mult_label.add_theme_font_size_override("font_size", _fs(18))
+	vbox.add_child(mult_label)
+
+	var close_btn := Button.new()
+	close_btn.text = "Close"
+	close_btn.custom_minimum_size = Vector2(0, 36)
+	close_btn.add_theme_font_size_override("font_size", _fs(21))
+	close_btn.pressed.connect(func(): _augment_popup.visible = false)
+	vbox.add_child(close_btn)
+
+
+func _open_augments() -> void:
+	menu_popup.visible = false
+	_refresh_augment_panel()
+	_augment_popup.visible = true
+
+
+func _get_energy_input_value() -> float:
+	if _energy_input == null:
+		return 10.0
+	var val := _energy_input.text.to_float()
+	return maxf(val, 0.0)
+
+
+func _refresh_augment_panel() -> void:
+	if _augment_list == null:
+		return
+
+	for child in _augment_list.get_children():
+		child.queue_free()
+
+	var e := GameState.energy
+
+	# Update energy info
+	_energy_info_label.text = "Energy: %.0f Idle / %.0f Cap  |  Power: %.1f" % [e.idle, e.cap, e.power]
+
+	# ATK/DEF training rows
+	_add_energy_training_row("Attack Training", e.allocated_attack, "_atk")
+	_add_energy_training_row("Defense Training", e.allocated_defense, "_def")
+
+	var sep := HSeparator.new()
+	_augment_list.add_child(sep)
+
+	# Header row
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 4)
+	var h_name := Label.new()
+	h_name.text = "Name"
+	h_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h_name.add_theme_font_size_override("font_size", _fs(16))
+	h_name.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	header.add_child(h_name)
+	var h_energy := Label.new()
+	h_energy.text = "Energy"
+	h_energy.add_theme_font_size_override("font_size", _fs(16))
+	h_energy.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	h_energy.custom_minimum_size = Vector2(60, 0)
+	header.add_child(h_energy)
+	var h_level := Label.new()
+	h_level.text = "Lv"
+	h_level.add_theme_font_size_override("font_size", _fs(16))
+	h_level.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	h_level.custom_minimum_size = Vector2(40, 0)
+	header.add_child(h_level)
+	_augment_list.add_child(header)
+
+	# Augment rows
+	for i in Augments.AUGMENT_DEFS.size():
+		var def_data: Dictionary = Augments.AUGMENT_DEFS[i]
+		var aug: Augments.AugmentState = e.augments[i]
+		var unlocked := GameState.player_level >= int(def_data["unlock_level"])
+
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+
+		var name_lbl := Label.new()
+		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_lbl.add_theme_font_size_override("font_size", _fs(18))
+		if not unlocked:
+			name_lbl.text = "Locked (Lv.%d)" % int(def_data["unlock_level"])
+			name_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		elif not aug.started:
+			name_lbl.text = "%s (%dg)" % [def_data["name"], int(def_data["gold_cost"])]
+		else:
+			name_lbl.text = def_data["name"]
+		row.add_child(name_lbl)
+
+		# +/- buttons
+		var add_btn := Button.new()
+		add_btn.text = "+"
+		add_btn.custom_minimum_size = Vector2(32, 0)
+		add_btn.add_theme_font_size_override("font_size", _fs(18))
+		row.add_child(add_btn)
+
+		var sub_btn := Button.new()
+		sub_btn.text = "-"
+		sub_btn.custom_minimum_size = Vector2(32, 0)
+		sub_btn.add_theme_font_size_override("font_size", _fs(18))
+		row.add_child(sub_btn)
+
+		# Energy allocated display
+		var alloc_lbl := Label.new()
+		alloc_lbl.add_theme_font_size_override("font_size", _fs(18))
+		alloc_lbl.custom_minimum_size = Vector2(60, 0)
+		alloc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(alloc_lbl)
+
+		# Level display
+		var level_lbl := Label.new()
+		level_lbl.add_theme_font_size_override("font_size", _fs(18))
+		level_lbl.custom_minimum_size = Vector2(40, 0)
+		level_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(level_lbl)
+
+		if not unlocked:
+			add_btn.disabled = true
+			sub_btn.disabled = true
+			alloc_lbl.text = "0"
+			level_lbl.text = "0"
+		elif not aug.started:
+			# Need to buy first
+			add_btn.text = "Buy"
+			add_btn.custom_minimum_size = Vector2(52, 0)
+			add_btn.pressed.connect(_on_buy_augment.bind(i))
+			sub_btn.visible = false
+			alloc_lbl.text = "0"
+			level_lbl.text = "0"
+			if GameState.currencies.gold.balance < float(def_data["gold_cost"]):
+				add_btn.disabled = true
+		else:
+			alloc_lbl.text = "%.0f" % aug.energy_allocated
+			level_lbl.text = "%d" % aug.level
+			add_btn.pressed.connect(_on_add_augment_energy.bind(i))
+			sub_btn.pressed.connect(_on_sub_augment_energy.bind(i))
+
+		_augment_list.add_child(row)
+
+	# Update multiplier display
+	var mults := Augments.total_augment_multiplier(e)
+	var mult_node := _augment_popup.get_node_or_null("*/MultLabel")
+	if mult_node == null:
+		# Find it manually
+		for child in _augment_popup.get_child(0).get_children():
+			if child.name == "MultLabel":
+				mult_node = child
+				break
+	if mult_node:
+		mult_node.text = "Total ATK Mult: x%.2f  |  DEF Mult: x%.2f" % [float(mults["attack"]), float(mults["defense"])]
+
+
+func _add_energy_training_row(label_text: String, allocated: float, tag: String) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+
+	var lbl := Label.new()
+	lbl.text = label_text
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.add_theme_font_size_override("font_size", _fs(18))
+	row.add_child(lbl)
+
+	var add_btn := Button.new()
+	add_btn.text = "+"
+	add_btn.custom_minimum_size = Vector2(32, 0)
+	add_btn.add_theme_font_size_override("font_size", _fs(18))
+	row.add_child(add_btn)
+
+	var sub_btn := Button.new()
+	sub_btn.text = "-"
+	sub_btn.custom_minimum_size = Vector2(32, 0)
+	sub_btn.add_theme_font_size_override("font_size", _fs(18))
+	row.add_child(sub_btn)
+
+	var alloc_lbl := Label.new()
+	alloc_lbl.text = "%.0f" % allocated
+	alloc_lbl.add_theme_font_size_override("font_size", _fs(18))
+	alloc_lbl.custom_minimum_size = Vector2(60, 0)
+	alloc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(alloc_lbl)
+
+	if tag == "_atk":
+		add_btn.pressed.connect(_on_add_attack_energy)
+		sub_btn.pressed.connect(_on_sub_attack_energy)
+	else:
+		add_btn.pressed.connect(_on_add_defense_energy)
+		sub_btn.pressed.connect(_on_sub_defense_energy)
+
+	_augment_list.add_child(row)
+
+
+func _on_add_attack_energy() -> void:
+	var amount := _get_energy_input_value()
+	GameState.energy.allocate_to_attack(amount)
+	_refresh_augment_panel()
+
+
+func _on_sub_attack_energy() -> void:
+	var amount := _get_energy_input_value()
+	GameState.energy.deallocate_from_attack(amount)
+	_refresh_augment_panel()
+
+
+func _on_add_defense_energy() -> void:
+	var amount := _get_energy_input_value()
+	GameState.energy.allocate_to_defense(amount)
+	_refresh_augment_panel()
+
+
+func _on_sub_defense_energy() -> void:
+	var amount := _get_energy_input_value()
+	GameState.energy.deallocate_from_defense(amount)
+	_refresh_augment_panel()
+
+
+func _on_add_augment_energy(aug_index: int) -> void:
+	var amount := _get_energy_input_value()
+	GameState.energy.allocate_to_augment(aug_index, amount)
+	_refresh_augment_panel()
+
+
+func _on_sub_augment_energy(aug_index: int) -> void:
+	var amount := _get_energy_input_value()
+	GameState.energy.deallocate_from_augment(aug_index, amount)
+	_refresh_augment_panel()
+
+
+func _on_buy_augment(aug_index: int) -> void:
+	if aug_index < 0 or aug_index >= Augments.AUGMENT_DEFS.size():
+		return
+	var def_data: Dictionary = Augments.AUGMENT_DEFS[aug_index]
+	var cost: float = float(def_data["gold_cost"])
+	if not GameState.currencies.gold.spend(cost):
+		return
+	GameState.energy.augments[aug_index].started = true
+	_refresh_augment_panel()
+
+
+# ===========================================================================
 #  HELPERS
 # ===========================================================================
 
 func _make_panel_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.08, 0.08, 0.14, 0.98)
-	style.content_margin_left = 16.0
-	style.content_margin_top = 16.0
-	style.content_margin_right = 16.0
-	style.content_margin_bottom = 16.0
+	style.content_margin_left = 10.0
+	style.content_margin_top = 8.0
+	style.content_margin_right = 10.0
+	style.content_margin_bottom = 8.0
 	style.corner_radius_top_left = 12
 	style.corner_radius_top_right = 12
 	style.corner_radius_bottom_right = 12
 	style.corner_radius_bottom_left = 12
 	return style
+
+
+# ===========================================================================
+#  FONT SCALE HELPER
+# ===========================================================================
+
+func _fs(base: int) -> int:
+	return maxi(int(base * _font_scale), 8)
+
+
+func _apply_menu_font_sizes() -> void:
+	var menu_vbox := menu_popup.get_node_or_null("MenuVBox")
+	if menu_vbox == null:
+		return
+	for child in menu_vbox.get_children():
+		if child is Label:
+			child.add_theme_font_size_override("font_size", _fs(27))
+		elif child is Button:
+			child.add_theme_font_size_override("font_size", _fs(21))
+
+
+func _setup_font_settings() -> void:
+	var settings_vbox := settings_popup.get_node_or_null("SettingsVBox")
+	if settings_vbox == null:
+		return
+
+	# Insert font size controls before the Close button
+	var close_btn := settings_vbox.get_node_or_null("CloseBtn")
+	var close_idx := -1
+	if close_btn:
+		close_idx = close_btn.get_index()
+
+	var sep := HSeparator.new()
+	sep.name = "FontSep"
+	settings_vbox.add_child(sep)
+	if close_idx >= 0:
+		settings_vbox.move_child(sep, close_idx)
+		close_idx += 1
+
+	var font_label := Label.new()
+	font_label.name = "FontLabel"
+	font_label.text = "Font Size"
+	font_label.add_theme_font_size_override("font_size", _fs(21))
+	settings_vbox.add_child(font_label)
+	if close_idx >= 0:
+		settings_vbox.move_child(font_label, close_idx)
+		close_idx += 1
+
+	var hbox := HBoxContainer.new()
+	hbox.name = "FontHBox"
+	hbox.add_theme_constant_override("separation", 8)
+	settings_vbox.add_child(hbox)
+	if close_idx >= 0:
+		settings_vbox.move_child(hbox, close_idx)
+
+	_font_slider = HSlider.new()
+	_font_slider.min_value = 0.6
+	_font_slider.max_value = 2.5
+	_font_slider.step = 0.1
+	_font_slider.value = _font_scale
+	_font_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_font_slider.value_changed.connect(_on_font_scale_changed)
+	hbox.add_child(_font_slider)
+
+	_font_value_label = Label.new()
+	_font_value_label.text = "%.0f%%" % (_font_scale * 100.0)
+	_font_value_label.add_theme_font_size_override("font_size", _fs(21))
+	_font_value_label.custom_minimum_size = Vector2(60, 0)
+	hbox.add_child(_font_value_label)
+
+
+func _on_font_scale_changed(value: float) -> void:
+	_font_scale = value
+	if _font_value_label:
+		_font_value_label.text = "%.0f%%" % (_font_scale * 100.0)
+
+	# Apply to all existing controls recursively
+	_scale_fonts_recursive($UILayer/UI)
+
+	# Rebuild dynamic popups to pick up new scale
+	_apply_menu_font_sizes()
+
+
+func _scale_fonts_recursive(node: Node) -> void:
+	if node is Control:
+		if node.has_theme_font_size_override("font_size"):
+			if not node.has_meta("_base_fs"):
+				node.set_meta("_base_fs", node.get_theme_font_size("font_size"))
+			var base: int = node.get_meta("_base_fs")
+			node.add_theme_font_size_override("font_size", _fs(base))
+	for child in node.get_children():
+		_scale_fonts_recursive(child)
